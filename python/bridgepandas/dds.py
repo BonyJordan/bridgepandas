@@ -213,6 +213,11 @@ def solve(
     return _solve_batch(df, trump_arr, leader_arr)
 
 
+def _dds_key(dc) -> str:
+    """Cache key: declarer direction + strain, e.g. 'NH', 'WN' (NT), 'SC'."""
+    return str(dc.declarer) + dc.strain
+
+
 def add_dds(
     df: pd.DataFrame,
     contracts,
@@ -221,6 +226,10 @@ def add_dds(
 ) -> None:
     """
     Solve double-dummy and score each deal, adding the NS score as a new column.
+
+    Results are cached in a ``_dds`` column (dict per row, keyed by
+    declarer+strain e.g. ``"NH"``) so repeated calls for the same
+    declarer/strain combination skip the solver entirely.
 
     Parameters
     ----------
@@ -247,23 +256,35 @@ def add_dds(
         dc = DeclaredContract(contracts)
         dc_list = [dc] * n
 
-    # Build per-row trump and leader arrays
-    trump_arr  = np.empty(n, dtype=np.int8)
-    leader_arr = np.empty(n, dtype=np.int8)
-    for i, dc in enumerate(dc_list):
-        trump_arr[i]  = _TRUMP_MAP[dc.strain]
-        leader = dc.declarer + 1          # LHO of declarer makes the opening lead
-        leader_arr[i] = _LEADER_MAP[str(leader)]
+    # Ensure the cache column exists
+    if "_dds" not in df.columns:
+        df["_dds"] = [dict() for _ in range(n)]
 
-    # Solve: score[0] is leader-side tricks; declarer gets 13 - that
-    leader_tricks = _solve_batch(df, trump_arr, leader_arr)
-    dec_tricks = 13 - leader_tricks
+    # Build per-row cache keys and find rows not yet solved
+    keys = [_dds_key(dc) for dc in dc_list]
+    cache = df["_dds"]
+    needs_solve = [i for i in range(n) if keys[i] not in cache.iat[i]]
 
-    # Score from NS perspective
+    if needs_solve:
+        # Build trump/leader arrays only for the rows that need solving
+        trump_arr  = np.empty(n, dtype=np.int8)
+        leader_arr = np.empty(n, dtype=np.int8)
+        for i in needs_solve:
+            dc = dc_list[i]
+            trump_arr[i]  = _TRUMP_MAP[dc.strain]
+            leader_arr[i] = _LEADER_MAP[str(dc.declarer + 1)]
+
+        sub_df = df.iloc[needs_solve]
+        leader_tricks = _solve_batch(sub_df, trump_arr[needs_solve], leader_arr[needs_solve])
+
+        for j, i in enumerate(needs_solve):
+            cache.iat[i][keys[i]] = 13 - int(leader_tricks[j])
+
+    # Score from NS perspective using cached trick counts
     vuln_series = vuln if isinstance(vuln, pd.Series) else None
     scores = np.empty(n, dtype=np.int32)
     for i, dc in enumerate(dc_list):
         v = vuln_series.iloc[i] if vuln_series is not None else vuln
-        scores[i] = score_ns(dc, int(dec_tricks[i]), v)
+        scores[i] = score_ns(dc, cache.iat[i][keys[i]], v)
 
     df[col_name] = scores
