@@ -174,6 +174,22 @@ class Hand(int):
     def clubs(self) -> int:    return self._suit_len(0)
 
     @property
+    def pattern(self) -> tuple[int, int, int, int]:
+        """Suit lengths in (spades, hearts, diamonds, clubs) order."""
+        v = int(self)
+        return (
+            int(_POPCOUNT13[(v >> 39) & 0x1FFF]),
+            int(_POPCOUNT13[(v >> 26) & 0x1FFF]),
+            int(_POPCOUNT13[(v >> 13) & 0x1FFF]),
+            int(_POPCOUNT13[v         & 0x1FFF]),
+        )
+
+    @property
+    def shape(self) -> tuple[int, int, int, int]:
+        """Suit lengths sorted descending, e.g. (5, 4, 3, 1)."""
+        return tuple(sorted(self.pattern, reverse=True))
+
+    @property
     def voids(self) -> int:
         return sum(1 for off in (0, 13, 26, 39) if self._suit_len(off) == 0)
 
