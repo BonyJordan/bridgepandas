@@ -413,6 +413,49 @@ ClubsAccessor    = _make_suit_accessor("clubs",     0)
 
 
 # ---------------------------------------------------------------------------
+# Shape accessors (voids / singletons / doubletons)
+# ---------------------------------------------------------------------------
+
+def _shape_count_array(data: np.ndarray, target_length: int) -> np.ndarray:
+    """Return an int8 array counting how many suits have exactly target_length cards."""
+    u = data.view(np.uint64)
+    counts = np.zeros(len(u), dtype=np.int8)
+    for offset in _SUIT_OFFSETS:
+        suit_bits = ((u >> np.uint64(offset)) & np.uint64(0x1FFF)).astype(np.uint16)
+        counts += (_POPCOUNT13[suit_bits] == target_length).astype(np.int8)
+    return counts
+
+
+def _make_shape_accessor(accessor_name: str, target_length: int):
+    @pd.api.extensions.register_series_accessor(accessor_name)
+    class _ShapeAccessor:
+        def __new__(cls, series: pd.Series) -> pd.Series:
+            if not isinstance(series.array, BridgeHandArray):
+                raise AttributeError(
+                    f"{accessor_name} accessor is only valid for BridgeHand columns"
+                )
+            arr = series.array
+            values = pd.array(
+                _shape_count_array(arr._data, target_length), dtype=pd.Int8Dtype()
+            )
+            if arr._mask.any():
+                values[arr._mask] = pd.NA
+            return pd.Series(values, index=series.index, name=series.name)
+
+        def __init__(self, series: pd.Series) -> None:
+            pass
+
+    _ShapeAccessor.__name__ = f"{accessor_name.capitalize()}Accessor"
+    _ShapeAccessor.__qualname__ = f"{accessor_name.capitalize()}Accessor"
+    return _ShapeAccessor
+
+
+VoidsAccessor      = _make_shape_accessor("voids",      0)
+SingletonsAccessor = _make_shape_accessor("singletons", 1)
+DoubletonsAccessor = _make_shape_accessor("doubletons", 2)
+
+
+# ---------------------------------------------------------------------------
 # Generic card counting
 # ---------------------------------------------------------------------------
 
