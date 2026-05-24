@@ -70,6 +70,131 @@ def int_to_hand_str(value: int) -> str:
     return "/".join(parts)
 
 
+def _parse_card(card: str) -> int:
+    """Parse a suit+rank string like 'CA' or 'SK' into a bit index (0-51)."""
+    if len(card) != 2:
+        raise ValueError(f"Card must be two characters (suit then rank), got {card!r}")
+    suit, rank = card[0].upper(), card[1].upper()
+    if suit not in _SUIT_OFFSET:
+        raise ValueError(f"Unknown suit {card[0]!r} in {card!r}; use S, H, D, or C")
+    if rank not in _RANK_INDEX:
+        raise ValueError(f"Unknown rank {card[1]!r} in {card!r}; use A, K, Q, J, T, 9-2")
+    return _SUIT_OFFSET[suit] + _RANK_INDEX[rank]
+
+
+class Hand(int):
+    """A single bridge hand stored as a 52-bit integer.
+
+    Subclasses int so it is accepted anywhere a raw hand integer is expected
+    (HandSet.contains, numpy arrays, bitwise ops, etc.).  str() and repr()
+    display the S/H/D/C hand string instead of the raw number.
+    """
+
+    def __new__(cls, value):
+        if isinstance(value, str):
+            value = hand_str_to_int(value)
+        return super().__new__(cls, int(value))
+
+    def __str__(self) -> str:
+        return int_to_hand_str(self)
+
+    def __repr__(self) -> str:
+        return f"Hand({int_to_hand_str(self)!r})"
+
+    def __add__(self, card: str) -> Hand:
+        return Hand(int(self) | (1 << _parse_card(card)))
+
+    def __sub__(self, card: str) -> Hand:
+        return Hand(int(self) & ~(1 << _parse_card(card)))
+
+    def any(self, suit: str) -> bool:
+        """Return True if there is at least one card in *suit* ('S', 'H', 'D', or 'C')."""
+        suit = suit.upper()
+        if suit not in _SUIT_OFFSET:
+            raise ValueError(f"Unknown suit {suit!r}; use S, H, D, or C")
+        return bool(int(self) & (0x1FFF << _SUIT_OFFSET[suit]))
+
+    # ------------------------------------------------------------------
+    # Scalar equivalents of the pandas series accessors
+    # ------------------------------------------------------------------
+
+    def _suit_len(self, offset: int) -> int:
+        return bin((int(self) >> offset) & 0x1FFF).count("1")
+
+    @property
+    def hcp(self) -> int:
+        v = int(self)
+        return sum(
+            pts
+            for offset in (0, 13, 26, 39)
+            for rank_idx, pts in ((12, 4), (11, 3), (10, 2), (9, 1))
+            if v & (1 << (offset + rank_idx))
+        )
+
+    @property
+    def akq_points(self) -> int:
+        v = int(self)
+        return sum(
+            pts
+            for offset in (0, 13, 26, 39)
+            for rank_idx, pts in ((12, 3), (11, 2), (10, 1))
+            if v & (1 << (offset + rank_idx))
+        )
+
+    @property
+    def controls(self) -> int:
+        v = int(self)
+        return sum(
+            pts
+            for offset in (0, 13, 26, 39)
+            for rank_idx, pts in ((12, 2), (11, 1))
+            if v & (1 << (offset + rank_idx))
+        )
+
+    @property
+    def spades(self) -> int:   return self._suit_len(39)
+
+    @property
+    def hearts(self) -> int:   return self._suit_len(26)
+
+    @property
+    def diamonds(self) -> int: return self._suit_len(13)
+
+    @property
+    def clubs(self) -> int:    return self._suit_len(0)
+
+    @property
+    def voids(self) -> int:
+        return sum(1 for off in (0, 13, 26, 39) if self._suit_len(off) == 0)
+
+    @property
+    def singletons(self) -> int:
+        return sum(1 for off in (0, 13, 26, 39) if self._suit_len(off) == 1)
+
+    @property
+    def doubletons(self) -> int:
+        return sum(1 for off in (0, 13, 26, 39) if self._suit_len(off) == 2)
+
+    def num(self, spec: str) -> int:
+        return bin(int(self) & _parse_count_spec(spec)).count("1")
+
+    def suits_of(self, spec: str) -> int:
+        patterns = _parse_holding_spec(spec)
+        v = int(self)
+        count = 0
+        for offset in (0, 13, 26, 39):
+            suit = (v >> offset) & 0x1FFF
+            suit_len = bin(suit).count("1")
+            for total_len, above_mask, req_mask in patterns:
+                if suit_len == total_len and (suit & above_mask) == req_mask:
+                    count += 1
+                    break
+        return count
+
+    def has(self, card: str) -> bool:
+        return bool(int(self) & (1 << _parse_card(card)))
+
+
 # ---------------------------------------------------------------------------
 # Dtype
 # ---------------------------------------------------------------------------
@@ -165,7 +290,7 @@ class BridgeHandArray(ExtensionArray):
         if isinstance(item, int):
             if self._mask[item]:
                 return pd.NA
-            return int(self._data[item])
+            return Hand(int(self._data[item]))
         return type(self)(self._data[item].copy(), self._mask[item].copy())
 
     def __setitem__(self, key, value) -> None:
@@ -550,18 +675,6 @@ class _SuitsOfAccessor:
 # ---------------------------------------------------------------------------
 # Single-card membership  (series.has("SK"))
 # ---------------------------------------------------------------------------
-
-def _parse_card(card: str) -> int:
-    """Parse a suit+rank string like 'CA' or 'SK' into a bit index (0-51)."""
-    if len(card) != 2:
-        raise ValueError(f"Card must be two characters (suit then rank), got {card!r}")
-    suit, rank = card[0].upper(), card[1].upper()
-    if suit not in _SUIT_OFFSET:
-        raise ValueError(f"Unknown suit {card[0]!r} in {card!r}; use S, H, D, or C")
-    if rank not in _RANK_INDEX:
-        raise ValueError(f"Unknown rank {card[1]!r} in {card!r}; use A, K, Q, J, T, 9-2")
-    return _SUIT_OFFSET[suit] + _RANK_INDEX[rank]
-
 
 @pd.api.extensions.register_series_accessor("has")
 class _HasAccessor:

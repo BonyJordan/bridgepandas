@@ -1,6 +1,7 @@
 from bridgepandas.hand import (
     BridgeHandArray,
     BridgeHandDtype,
+    Hand,
     hand_str_to_int,
     int_to_hand_str,
     RANKS,
@@ -34,6 +35,7 @@ __all__ = [
     "BridgeHandArray",
     "BridgeHandDtype",
     "Deal",
+    "Hand",
     "h",
     "hand_str_to_int",
     "int_to_hand_str",

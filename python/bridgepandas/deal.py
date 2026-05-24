@@ -1,31 +1,47 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 from typing import Iterable
 
 import numpy as np
 import pandas as pd
 
-from .hand import int_to_hand_str, hand_str_to_int, BridgeHandArray, RANKS, _RANK_INDEX, _SUIT_OFFSET
+from .hand import Hand, int_to_hand_str, hand_str_to_int, BridgeHandArray, RANKS, _RANK_INDEX, _SUIT_OFFSET
 
 # suits in bit-position order: bits 0-12 = C, 13-25 = D, 26-38 = H, 39-51 = S
 _SUITS_BY_OFFSET = "CDHS"
 
 
-@dataclass(frozen=True)
 class Deal:
     """
-    A single bridge deal: four hands stored as int64 bit fields.
+    A single bridge deal: four hands stored as Hand (int subclass) fields.
 
     Immutable and hashable, so deals can be used as dict keys or in sets.
-    Meant to be the unit of exchange between pandas (bulk storage) and
-    bridge-logic code (bidding, double-dummy analysis, etc.).
+    Printing deal.west (etc.) shows the S/H/D/C hand string.
     """
 
-    west:  int
-    north: int
-    east:  int
-    south: int
+    __slots__ = ("west", "north", "east", "south")
+
+    def __init__(self, west, north, east, south):
+        object.__setattr__(self, "west",  Hand(west))
+        object.__setattr__(self, "north", Hand(north))
+        object.__setattr__(self, "east",  Hand(east))
+        object.__setattr__(self, "south", Hand(south))
+
+    def __setattr__(self, name, value):
+        raise AttributeError("Deal is immutable")
+
+    def __eq__(self, other):
+        if not isinstance(other, Deal):
+            return NotImplemented
+        return (self.west == other.west and self.north == other.north
+                and self.east == other.east and self.south == other.south)
+
+    def __hash__(self):
+        return hash((int(self.west), int(self.north), int(self.east), int(self.south)))
+
+    def __repr__(self) -> str:
+        return (f"Deal(west={str(self.west)!r}, north={str(self.north)!r}, "
+                f"east={str(self.east)!r}, south={str(self.south)!r})")
 
     # ------------------------------------------------------------------
     # Construction
@@ -34,28 +50,18 @@ class Deal:
     @classmethod
     def from_row(cls, row) -> Deal:
         """Create a Deal from a DataFrame row (e.g. ``df.iloc[i]``)."""
-        return cls(
-            west=int(row["west"]),
-            north=int(row["north"]),
-            east=int(row["east"]),
-            south=int(row["south"]),
-        )
+        return cls(row["west"], row["north"], row["east"], row["south"])
 
     @classmethod
     def from_strings(cls, west: str, north: str, east: str, south: str) -> Deal:
         """Create a Deal from four S/H/D/C hand strings."""
-        return cls(
-            west=hand_str_to_int(west),
-            north=hand_str_to_int(north),
-            east=hand_str_to_int(east),
-            south=hand_str_to_int(south),
-        )
+        return cls(west, north, east, south)
 
     # ------------------------------------------------------------------
     # Conversion
     # ------------------------------------------------------------------
 
-    def to_dict(self) -> dict[str, int]:
+    def to_dict(self) -> dict[str, Hand]:
         return {"west": self.west, "north": self.north,
                 "east": self.east, "south": self.south}
 
@@ -78,10 +84,10 @@ class Deal:
     # ------------------------------------------------------------------
 
     def __str__(self) -> str:
-        w = int_to_hand_str(self.west)
-        n = int_to_hand_str(self.north)
-        e = int_to_hand_str(self.east)
-        s = int_to_hand_str(self.south)
+        w = str(self.west)
+        n = str(self.north)
+        e = str(self.east)
+        s = str(self.south)
         width = max(len(w), len(s))
         pad = " " * (width + 3)
         return (
