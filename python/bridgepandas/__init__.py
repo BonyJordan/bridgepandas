@@ -25,10 +25,11 @@ from bridgepandas.auction import (
 )
 from bridgepandas.scoring import (
     declarer_vulnerable,
-    result_score,
+    score,
     scorediff_imps,
     scorediff_matchpoints,
 )
+from bridgepandas.dds import solve, add_dds
 
 __all__ = [
     # hands / deals
@@ -56,7 +57,10 @@ __all__ = [
     "auction_to_contract",
     # scoring
     "declarer_vulnerable",
-    "result_score",
+    "score",
     "scorediff_imps",
     "scorediff_matchpoints",
+    # dds
+    "add_dds",
+    "solve",
 ]

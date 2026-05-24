@@ -96,6 +96,10 @@ class Vuln:
     def ns_vul(self) -> bool:
         return bool(self.data & Vuln.NS_BIT)
 
+    def is_vul(self, direction) -> bool:
+        d = Direction(direction)
+        return self.ns_vul() if d.is_ns() else self.ew_vul()
+
     def __str__(self):
         return "-neb"[self.data]
 

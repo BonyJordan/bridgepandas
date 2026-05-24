@@ -1,6 +1,6 @@
 import bisect
 
-from .auction import Contract
+from .auction import Contract, DeclaredContract
 from .direction import Direction, Vuln
 
 
@@ -37,7 +37,17 @@ def scorediff_matchpoints(diff: int) -> float:
     return 0.5
 
 
-def result_score(contract, tricks: int, vulnerable: bool) -> int:
+def score_ns(declared_contract: str|DeclaredContract, tricks: int,
+             vulnerable: str|Vuln) -> int:
+    dc = DeclaredContract(declared_contract)
+    vul = Vuln(vulnerable)
+    dec_score = score(dc, tricks, vul.is_vul(dc.declarer))
+    if dc.declarer.is_ew():
+        return -dec_score
+    else:
+        return dec_score
+
+def score(contract, tricks: int, vulnerable: bool) -> int:
     """
     Return the declarer's score for making *tricks* tricks in *contract*.
 
@@ -96,7 +106,7 @@ def result_score(contract, tricks: int, vulnerable: bool) -> int:
 
 __all__ = [
     "declarer_vulnerable",
-    "result_score",
+    "score",
     "scorediff_imps",
     "scorediff_matchpoints",
 ]
