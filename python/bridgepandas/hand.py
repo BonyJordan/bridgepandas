@@ -512,31 +512,18 @@ def _controls_array(data: np.ndarray, singleton_kings: bool) -> np.ndarray:
 
 
 @pd.api.extensions.register_series_accessor("controls")
-class _ControlsAccessor:
-    """Accessor returning a callable so ``series.controls()`` returns a Series.
-
-    Parameters
-    ----------
-    singleton_kings : bool, default True
-        When False, a king with no other card in its suit counts 0 instead of 1.
-    """
-
-    def __new__(cls, series: pd.Series):
-        arr = series.array
-        if not isinstance(arr, BridgeHandArray):
+class ControlsAccessor:
+    def __new__(cls, series: pd.Series) -> pd.Series:
+        if not isinstance(series.array, BridgeHandArray):
             raise AttributeError("controls is only valid for BridgeHand series")
-
-        def _controls(singleton_kings: bool = True) -> pd.Series:
-            counts = _controls_array(arr._data, singleton_kings)
-            values = pd.array(counts, dtype=pd.Int8Dtype())
-            if arr._mask.any():
-                values[arr._mask] = pd.NA
-            return pd.Series(values, index=series.index, name=series.name)
-
-        return _controls
+        arr = series.array
+        values = pd.array(_controls_array(arr._data, singleton_kings=True), dtype=pd.Int8Dtype())
+        if arr._mask.any():
+            values[arr._mask] = pd.NA
+        return pd.Series(values, index=series.index, name=series.name)
 
     def __init__(self, series: pd.Series) -> None:
-        pass  # never called; __new__ returned a non-instance
+        pass
 
 
 # ---------------------------------------------------------------------------
