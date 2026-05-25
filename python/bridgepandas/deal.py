@@ -200,14 +200,17 @@ def random_deals(
         - ``str`` — partial hand string ``"AK/Q/-/-"`` (S/H/D/C format, known cards)
         - ``int`` — int64 bitmask of required cards
         - ``HandSet`` — BDD constraint (enables fast BDD sampling)
-        - ``callable`` — ``f(hand_int) -> bool`` (forces slow accept/reject path)
+        - ``callable`` — ``f(Hand) -> bool`` (forces slow accept/reject path)
 
     accept : callable, optional
-        ``f(Deal) -> bool`` applied to each candidate deal. Forces slow path.
+        ``f(Deal) -> bool`` applied to each candidate deal as a post-filter.
+        BDD sampling is still used when the per-hand specs allow it; the slow
+        accept/reject path is only used when a per-hand spec is itself a callable.
     seed : int or numpy.random.Generator, optional
         RNG seed for reproducibility.
     fail_count : int
-        After this many consecutive failures before the first success, raise
+        A safety valve to protect against impossible constraints;
+        after this many consecutive failures before the first success, raise
         ``ValueError``.  ``None`` means no limit.
     """
     specs = [west, north, east, south]
@@ -332,7 +335,7 @@ def _slow_random_deals(n, west, north, east, south, accept, seed, fail_count):
         elif isinstance(spec, HandSet):
             acceptors[i] = spec.contains
         elif callable(spec):
-            acceptors[i] = spec
+            acceptors[i] = lambda h, f=spec: f(Hand(h))
         else:
             raise TypeError(f"Unsupported spec type: {type(spec)}")
 

@@ -98,6 +98,17 @@ details.item > summary code { font-size: 0.9rem; background: none; }
     color: #333;
 }
 .narrative p { margin: 0.4rem 0; }
+h3.metrics-heading {
+    font-size: 0.85rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #1a3a7c;
+    margin: 1rem 0 0.1rem;
+    border-bottom: 1px solid #d0d7e3;
+    padding-bottom: 0.2rem;
+}
+p.metrics-sub { margin: 0.2rem 0 0.3rem; color: #555; font-size: 0.85rem; }
 table.metrics {
     width: 100%;
     border-collapse: collapse;
@@ -199,9 +210,9 @@ progress : bool<br>
     Show a progress bar (requires tqdm; silently skipped if not installed).</div></details>
 </div></details>
 
-<details class="section" open><summary>Hand Sets</summary><div class="section-body"><div class="narrative"><p>All hand constraints are built from <code>h</code>. Metrics compare with <code>==</code>, <code>!=</code>, <code>&lt;</code>, <code>&lt;=</code>, <code>&gt;</code>, <code>&gt;=</code> to produce hand sets. Hand sets combine with <code>&amp;</code> (and), <code>|</code> (or), <code>~</code> (not). Pass them as constraints to <code>random_deals()</code>.</p><p><strong>Example:</strong> <code>(h.HCP &gt;= 15) &amp; (h.HCP &lt;= 17) &amp; (h.SPADES &gt;= 5)</code></p><table class="metrics"><tr><td><code>h.SPADES, h.HEARTS, h.DIAMONDS, h.CLUBS</code></td><td>Suit length (0–13).</td></tr><tr><td><code>h.HCP</code></td><td>High card points: A=4, K=3, Q=2, J=1.</td></tr><tr><td><code>h.AKQ_POINTS</code></td><td>AKQ points: A=3, K=2, Q=1.</td></tr><tr><td><code>h.CONTROLS</code></td><td>Controls: A=2, K=1.</td></tr><tr><td><code>h.ACES, h.KINGS, h.QUEENS, h.JACKS, h.TENS</code></td><td>Count of that honor held.</td></tr><tr><td><code>h.TOP2 … h.TOP5</code></td><td>Count of top-2 through top-5 honors held across all suits.</td></tr><tr><td><code>h.QUICK_TRICKS_X2</code></td><td>Quick tricks × 2 (integer): AK=4, AQ=3, A=2, KQ=2, Kx=1. Compare as <code>h.QUICK_TRICKS_X2 &gt;= 3</code> for ≥1.5 quick tricks.</td></tr><tr><td><code>h.LONGEST_SUIT, h.SECOND_SUIT, h.SHORTEST_SUIT</code></td><td>Length of the longest / 2nd-longest / shortest suit.</td></tr><tr><td><code>h.VOIDS, h.SINGLETONS, h.DOUBLETONS</code></td><td>Number of suits with exactly 0, 1, or 2 cards.</td></tr><tr><td><code>h.MATCH_SHAPE(spec)</code></td><td>Shape constraint, e.g. <code>"any 5332"</code>, <code>"44xx"</code>, <code>"4432 + 4333"</code>.</td></tr><tr><td><code>h.NUM(spec)</code></td><td>Count of cards matching a spec — same syntax as <code>Hand.num()</code>, e.g. <code>h.NUM("A")</code> counts aces.</td></tr><tr><td><code>h.ANY(suit)</code></td><td>At least one card held in <em>suit</em>, e.g. <code>h.ANY("S")</code>.</td></tr><tr><td><code>h.ALL_HANDS</code></td><td>Unconstrained — matches every possible hand.</td></tr><tr><td><code>h.GOOD_SUIT(spec, suit)</code></td><td>Suit satisfies a holding pattern — same syntax as <code>Hand.good_suit()</code>, e.g. <code>h.GOOD_SUIT("AJx,KQx", "H")</code>.</td></tr><tr><td><code>h.HAS(card)</code></td><td>Hand contains a specific card, e.g. <code>h.HAS("SA")</code>.</td></tr><tr><td><code>h.NORTH(hs), h.SOUTH(hs), …</code></td><td>Apply a hand constraint to a specific seat to get a deal constraint.</td></tr></table></div></div></details>
+<details class="section" open><summary>Hand Sets</summary><div class="section-body"><div class="narrative"><p>All hand constraints are built from <code>h</code>. Hand sets combine with <code>&amp;</code> (and), <code>|</code> (or), <code>~</code> (not). Pass them as constraints to <code>random_deals()</code>.</p><p>Numeric metrics can be added together and multiplied by constants before comparing, so composite rules are expressed naturally.</p><p><strong>Example (1NT Opener):</strong> <code>(h.HCP &gt;= 15) &amp; (h.HCP &lt;= 17) &amp; h.MATCH_SHAPE("any 4333 + any 4432 + any 5332")</code></p><p><strong>Example (rule of 20):</strong> <code>h.HCP + h.LONGEST_SUIT + h.SECOND_SUIT &gt;= 20</code></p><h3 class="metrics-heading">Numeric metrics</h3><p class="metrics-sub">Compare with <code>==</code>, <code>!=</code>, <code>&lt;</code>, <code>&lt;=</code>, <code>&gt;</code>, <code>&gt;=</code> to produce a hand set.</p><table class="metrics"><tr><td><code>h.SPADES, h.HEARTS, h.DIAMONDS, h.CLUBS</code></td><td>Suit length (0–13).</td></tr><tr><td><code>h.HCP</code></td><td>High card points: A=4, K=3, Q=2, J=1.</td></tr><tr><td><code>h.AKQ_POINTS</code></td><td>AKQ points: A=3, K=2, Q=1.</td></tr><tr><td><code>h.CONTROLS</code></td><td>Controls: A=2, K=1.</td></tr><tr><td><code>h.ACES, h.KINGS, h.QUEENS, h.JACKS, h.TENS</code></td><td>Count of that honor held.</td></tr><tr><td><code>h.TOP2 … h.TOP5</code></td><td>Count of top-2 through top-5 honors held across all suits.</td></tr><tr><td><code>h.QUICK_TRICKS_X2</code></td><td>Quick tricks × 2 (integer): AK=4, AQ=3, A=2, KQ=2, Kx=1. Compare as <code>h.QUICK_TRICKS_X2 &gt;= 3</code> for ≥1.5 quick tricks.</td></tr><tr><td><code>h.LONGEST_SUIT, h.SECOND_SUIT, h.SHORTEST_SUIT</code></td><td>Length of the longest / 2nd-longest / shortest suit.</td></tr><tr><td><code>h.VOIDS, h.SINGLETONS, h.DOUBLETONS</code></td><td>Number of suits with exactly 0, 1, or 2 cards.</td></tr><tr><td><code>h.NUM(spec)</code></td><td>Count of cards matching a spec — same syntax as <a href="#Hand.num"><code>Hand.num()</code></a>, e.g. <code>h.NUM("A")</code> counts aces.</td></tr></table><h3 class="metrics-heading">Boolean constraints</h3><p class="metrics-sub">These return a hand set directly — no comparison needed.</p><table class="metrics"><tr><td><code>h.MATCH_SHAPE(spec)</code></td><td>Shape constraint, e.g. <code>"any 5332"</code>, <code>"44xx"</code>, <code>"4432 + 4333"</code>.</td></tr><tr><td><code>h.GOOD_SUIT(spec, suit)</code></td><td>Suit satisfies a holding pattern — same syntax as <a href="#Hand.good_suit"><code>Hand.good_suit()</code></a>, e.g. <code>h.GOOD_SUIT("AJx,KQx", "H")</code>.</td></tr><tr><td><code>h.HAS(card)</code></td><td>Hand contains a specific card, e.g. <code>h.HAS("SA")</code>.</td></tr><tr><td><code>h.ANY(suit)</code></td><td>At least one card held in <em>suit</em>, e.g. <code>h.ANY("S")</code>.</td></tr><tr><td><code>h.ALL_HANDS</code></td><td>Unconstrained — matches every possible hand.</td></tr></table><h3 class="metrics-heading">DealSet converters</h3><p class="metrics-sub">Lift a hand constraint to a full-deal constraint.</p><table class="metrics"><tr><td><code>h.NORTH(hs), h.SOUTH(hs), h.EAST(hs), h.WEST(hs)</code></td><td>Apply a hand constraint to a specific seat to get a deal constraint.</td></tr></table></div></div></details>
 
-<details class="section" open><summary>Deals &amp; Hands</summary><div class="section-body"><details class="item cls"><summary><code><span class="kw">class</span> <span class="cls-name">Deal</span>(west, north=None, east=None, south=None)</code></summary><div class="doc">A single bridge deal: four hands stored as Hand (int subclass) fields.<br>
+<details class="section" open><summary>Deals &amp; Hands</summary><div class="section-body"><details class="item cls" id="Deal"><summary><code><span class="kw">class</span> <span class="cls-name">Deal</span>(west, north=None, east=None, south=None)</code></summary><div class="doc">A single bridge deal: four hands stored as Hand (int subclass) fields.<br>
 <br>
 Immutable and hashable, so deals can be used as dict keys or in sets.<br>
 Each hand is accessible as an attribute, a full lowercase name, a<br>
@@ -213,22 +224,22 @@ Printing a hand shows the S/H/D/C hand string.</div><div class="doc init-doc">Tw
 <br>
 <code>Deal(row)</code> — a single DataFrame row (from <code>df.itertuples()</code> or<br>
 <code>df.iloc[i]</code>); the row must have <code>west</code>, <code>north</code>, <code>east</code>, <code>south</code><br>
-attributes or keys.  Prefer :meth:`from_row` for clarity.</div><div class="methods"><details class="item fn"><summary><code><span class="fn-name">from_row</span>(cls, row) -&gt; &#x27;Deal&#x27;</code></summary><div class="doc">Create a Deal from a DataFrame row — supports iloc[] rows and itertuples() rows.</div></details>
-<details class="item fn"><summary><code><span class="fn-name">from_strings</span>(cls, west: &#x27;str&#x27;, north: &#x27;str&#x27;, east: &#x27;str&#x27;, south: &#x27;str&#x27;) -&gt; &#x27;Deal&#x27;</code></summary><div class="doc">Create a Deal from four S/H/D/C hand strings.</div></details>
-<details class="item fn"><summary><code><span class="fn-name">to_dataframe</span>(deals: &#x27;Iterable[Deal]&#x27;) -&gt; &#x27;pd.DataFrame&#x27;</code></summary><div class="doc">Convert an iterable of Deals to a DataFrame with BridgeHandArray columns.</div></details>
-<details class="item fn"><summary><code><span class="fn-name">to_dict</span>(self) -&gt; &#x27;dict[str, Hand]&#x27;</code></summary></details>
+attributes or keys.  Prefer :meth:`from_row` for clarity.</div><div class="methods"><details class="item fn" id="Deal.from_row"><summary><code><span class="fn-name">from_row</span>(cls, row) -&gt; &#x27;Deal&#x27;</code></summary><div class="doc">Create a Deal from a DataFrame row — supports iloc[] rows and itertuples() rows.</div></details>
+<details class="item fn" id="Deal.from_strings"><summary><code><span class="fn-name">from_strings</span>(cls, west: &#x27;str&#x27;, north: &#x27;str&#x27;, east: &#x27;str&#x27;, south: &#x27;str&#x27;) -&gt; &#x27;Deal&#x27;</code></summary><div class="doc">Create a Deal from four S/H/D/C hand strings.</div></details>
+<details class="item fn" id="Deal.to_dataframe"><summary><code><span class="fn-name">to_dataframe</span>(deals: &#x27;Iterable[Deal]&#x27;) -&gt; &#x27;pd.DataFrame&#x27;</code></summary><div class="doc">Convert an iterable of Deals to a DataFrame with BridgeHandArray columns.</div></details>
+<details class="item fn" id="Deal.to_dict"><summary><code><span class="fn-name">to_dict</span>(self) -&gt; &#x27;dict[str, Hand]&#x27;</code></summary></details>
 </div></details>
-<details class="item cls"><summary><code><span class="kw">class</span> <span class="cls-name">Hand</span>(value)</code></summary><div class="doc">A single bridge hand stored as a 52-bit integer.<br>
+<details class="item cls" id="Hand"><summary><code><span class="kw">class</span> <span class="cls-name">Hand</span>(value)</code></summary><div class="doc">A single bridge hand stored as a 52-bit integer.<br>
 <br>
 Subclasses int so it is accepted anywhere a raw hand integer is expected<br>
 (HandSet.contains, numpy arrays, bitwise ops, etc.).  str() and repr()<br>
-display the S/H/D/C hand string instead of the raw number.</div><div class="methods"><details class="item prop"><summary><code><span class="prop-badge">prop</span> <span class="prop-name">akq_points</span></code></summary><div class="doc">AKQ points: A=3, K=2, Q=1 (jacks excluded).</div></details>
-<details class="item fn"><summary><code><span class="fn-name">any</span>(self, suit: &#x27;str&#x27;) -&gt; &#x27;bool&#x27;</code></summary><div class="doc">Return True if there is at least one card in <em>suit</em> (&#x27;S&#x27;, &#x27;H&#x27;, &#x27;D&#x27;, or &#x27;C&#x27;).</div></details>
-<details class="item prop"><summary><code><span class="prop-badge">prop</span> <span class="prop-name">clubs</span></code></summary><div class="doc">Number of clubs held.</div></details>
-<details class="item prop"><summary><code><span class="prop-badge">prop</span> <span class="prop-name">controls</span></code></summary><div class="doc">Control count: A=2, K=1.</div></details>
-<details class="item prop"><summary><code><span class="prop-badge">prop</span> <span class="prop-name">diamonds</span></code></summary><div class="doc">Number of diamonds held.</div></details>
-<details class="item prop"><summary><code><span class="prop-badge">prop</span> <span class="prop-name">doubletons</span></code></summary><div class="doc">Number of suits in which exactly two cards are held.</div></details>
-<details class="item fn"><summary><code><span class="fn-name">good_suit</span>(self, spec: &#x27;str&#x27;, suit: &#x27;str&#x27;) -&gt; &#x27;bool&#x27;</code></summary><div class="doc">Return True if the holding in <em>suit</em> matches at least one pattern in the comma-separated <em>spec</em>.<br>
+display the S/H/D/C hand string instead of the raw number.</div><div class="methods"><details class="item prop" id="Hand.akq_points"><summary><code><span class="prop-badge">prop</span> <span class="prop-name">akq_points</span></code></summary><div class="doc">AKQ points: A=3, K=2, Q=1 (jacks excluded).</div></details>
+<details class="item fn" id="Hand.any"><summary><code><span class="fn-name">any</span>(self, suit: &#x27;str&#x27;) -&gt; &#x27;bool&#x27;</code></summary><div class="doc">Return True if there is at least one card in <em>suit</em> (&#x27;S&#x27;, &#x27;H&#x27;, &#x27;D&#x27;, or &#x27;C&#x27;).</div></details>
+<details class="item prop" id="Hand.clubs"><summary><code><span class="prop-badge">prop</span> <span class="prop-name">clubs</span></code></summary><div class="doc">Number of clubs held.</div></details>
+<details class="item prop" id="Hand.controls"><summary><code><span class="prop-badge">prop</span> <span class="prop-name">controls</span></code></summary><div class="doc">Control count: A=2, K=1.</div></details>
+<details class="item prop" id="Hand.diamonds"><summary><code><span class="prop-badge">prop</span> <span class="prop-name">diamonds</span></code></summary><div class="doc">Number of diamonds held.</div></details>
+<details class="item prop" id="Hand.doubletons"><summary><code><span class="prop-badge">prop</span> <span class="prop-name">doubletons</span></code></summary><div class="doc">Number of suits in which exactly two cards are held.</div></details>
+<details class="item fn" id="Hand.good_suit"><summary><code><span class="fn-name">good_suit</span>(self, spec: &#x27;str&#x27;, suit: &#x27;str&#x27;) -&gt; &#x27;bool&#x27;</code></summary><div class="doc">Return True if the holding in <em>suit</em> matches at least one pattern in the comma-separated <em>spec</em>.<br>
 <br>
 Each pattern is a sequence of ranks followed by optional <code>x</code> wildcards.<br>
 The holding must be at least as long as the pattern, and each named rank<br>
@@ -239,12 +250,12 @@ Examples::<br>
 <br>
     hand.good_suit(&quot;A,Kx&quot;, &quot;S&quot;)      # spade stopper (A or Kx)<br>
     hand.good_suit(&quot;AJx,KQx&quot;, &quot;H&quot;)   # decent heart suit</div></details>
-<details class="item fn"><summary><code><span class="fn-name">has</span>(self, card: &#x27;str&#x27;) -&gt; &#x27;bool&#x27;</code></summary><div class="doc">Return True if this hand contains the given card, e.g. <code>&quot;SA&quot;</code> for ace of spades.</div></details>
-<details class="item prop"><summary><code><span class="prop-badge">prop</span> <span class="prop-name">hcp</span></code></summary><div class="doc">High card points: A=4, K=3, Q=2, J=1.</div></details>
-<details class="item prop"><summary><code><span class="prop-badge">prop</span> <span class="prop-name">hearts</span></code></summary><div class="doc">Number of hearts held.</div></details>
-<details class="item prop"><summary><code><span class="prop-badge">prop</span> <span class="prop-name">longest_suit</span></code></summary><div class="doc">Length of the longest suit.</div></details>
-<details class="item prop"><summary><code><span class="prop-badge">prop</span> <span class="prop-name">losers</span></code></summary><div class="doc">Classic losing trick count</div></details>
-<details class="item fn"><summary><code><span class="fn-name">match_shape</span>(self, spec: &#x27;str&#x27;) -&gt; &#x27;bool&#x27;</code></summary><div class="doc">Return True if this hand&#x27;s suit-length distribution matches the shape spec.<br>
+<details class="item fn" id="Hand.has"><summary><code><span class="fn-name">has</span>(self, card: &#x27;str&#x27;) -&gt; &#x27;bool&#x27;</code></summary><div class="doc">Return True if this hand contains the given card, e.g. <code>&quot;SA&quot;</code> for ace of spades.</div></details>
+<details class="item prop" id="Hand.hcp"><summary><code><span class="prop-badge">prop</span> <span class="prop-name">hcp</span></code></summary><div class="doc">High card points: A=4, K=3, Q=2, J=1.</div></details>
+<details class="item prop" id="Hand.hearts"><summary><code><span class="prop-badge">prop</span> <span class="prop-name">hearts</span></code></summary><div class="doc">Number of hearts held.</div></details>
+<details class="item prop" id="Hand.longest_suit"><summary><code><span class="prop-badge">prop</span> <span class="prop-name">longest_suit</span></code></summary><div class="doc">Length of the longest suit.</div></details>
+<details class="item prop" id="Hand.losers"><summary><code><span class="prop-badge">prop</span> <span class="prop-name">losers</span></code></summary><div class="doc">Classic losing trick count</div></details>
+<details class="item fn" id="Hand.match_shape"><summary><code><span class="fn-name">match_shape</span>(self, spec: &#x27;str&#x27;) -&gt; &#x27;bool&#x27;</code></summary><div class="doc">Return True if this hand&#x27;s suit-length distribution matches the shape spec.<br>
 <br>
 Uses the same syntax as <code>h.MATCH_SHAPE()</code>.<br>
 <br>
@@ -253,70 +264,70 @@ Examples::<br>
     hand.match_shape(&quot;any 5332&quot;)          # any 5-3-3-2 distribution<br>
     hand.match_shape(&quot;4432 + 4333&quot;)        # either shape<br>
     hand.match_shape(&quot;44xx - 4450&quot;)        # 4-4 majors, not 4-4-5-0</div></details>
-<details class="item fn"><summary><code><span class="fn-name">num</span>(self, spec: &#x27;str&#x27;) -&gt; &#x27;int&#x27;</code></summary><div class="doc">Count number cards matching a definition.  Some examples:<br>
+<details class="item fn" id="Hand.num"><summary><code><span class="fn-name">num</span>(self, spec: &#x27;str&#x27;) -&gt; &#x27;int&#x27;</code></summary><div class="doc">Count number cards matching a definition.  Some examples:<br>
 &quot;A&quot;:    number of aces<br>
 &quot;S&quot;:    number of spades<br>
 &quot;HQ&quot;:   specifically the queen of hearts<br>
 &quot;HDK&quot;:  red kings<br>
 &quot;A,SK&quot;: aces or the king of spades (key cards for spades)<br>
         </div></details>
-<details class="item prop"><summary><code><span class="prop-badge">prop</span> <span class="prop-name">pattern</span></code></summary><div class="doc">Suit lengths in (spades, hearts, diamonds, clubs) order.</div></details>
-<details class="item prop"><summary><code><span class="prop-badge">prop</span> <span class="prop-name">quick_tricks</span></code></summary><div class="doc">Quick tricks: AK=2, AQ=1.5, A=1, KQ=1, Kx=0.5.</div></details>
-<details class="item prop"><summary><code><span class="prop-badge">prop</span> <span class="prop-name">second_suit</span></code></summary><div class="doc">Length of the second-longest suit.</div></details>
-<details class="item prop"><summary><code><span class="prop-badge">prop</span> <span class="prop-name">shape</span></code></summary><div class="doc">Suit lengths sorted descending, e.g. (5, 4, 3, 1).</div></details>
-<details class="item prop"><summary><code><span class="prop-badge">prop</span> <span class="prop-name">shortest_suit</span></code></summary><div class="doc">Length of the shortest suit.</div></details>
-<details class="item prop"><summary><code><span class="prop-badge">prop</span> <span class="prop-name">singletons</span></code></summary><div class="doc">Number of suits in which exactly one card is held.</div></details>
-<details class="item prop"><summary><code><span class="prop-badge">prop</span> <span class="prop-name">spades</span></code></summary><div class="doc">Number of spades held.</div></details>
-<details class="item fn"><summary><code><span class="fn-name">suits_of</span>(self, spec: &#x27;str&#x27;) -&gt; &#x27;int&#x27;</code></summary><div class="doc">Count suits exactly matching a holding pattern, some examples:<br>
+<details class="item prop" id="Hand.pattern"><summary><code><span class="prop-badge">prop</span> <span class="prop-name">pattern</span></code></summary><div class="doc">Suit lengths in (spades, hearts, diamonds, clubs) order.</div></details>
+<details class="item prop" id="Hand.quick_tricks"><summary><code><span class="prop-badge">prop</span> <span class="prop-name">quick_tricks</span></code></summary><div class="doc">Quick tricks: AK=2, AQ=1.5, A=1, KQ=1, Kx=0.5.</div></details>
+<details class="item prop" id="Hand.second_suit"><summary><code><span class="prop-badge">prop</span> <span class="prop-name">second_suit</span></code></summary><div class="doc">Length of the second-longest suit.</div></details>
+<details class="item prop" id="Hand.shape"><summary><code><span class="prop-badge">prop</span> <span class="prop-name">shape</span></code></summary><div class="doc">Suit lengths sorted descending, e.g. (5, 4, 3, 1).</div></details>
+<details class="item prop" id="Hand.shortest_suit"><summary><code><span class="prop-badge">prop</span> <span class="prop-name">shortest_suit</span></code></summary><div class="doc">Length of the shortest suit.</div></details>
+<details class="item prop" id="Hand.singletons"><summary><code><span class="prop-badge">prop</span> <span class="prop-name">singletons</span></code></summary><div class="doc">Number of suits in which exactly one card is held.</div></details>
+<details class="item prop" id="Hand.spades"><summary><code><span class="prop-badge">prop</span> <span class="prop-name">spades</span></code></summary><div class="doc">Number of spades held.</div></details>
+<details class="item fn" id="Hand.suits_of"><summary><code><span class="fn-name">suits_of</span>(self, spec: &#x27;str&#x27;) -&gt; &#x27;int&#x27;</code></summary><div class="doc">Count suits exactly matching a holding pattern, some examples:<br>
 &quot;K&quot;:    singleton king<br>
 &quot;QJ&quot;:   queen-jack tight<br>
 &quot;Jx&quot;:   jack and exactly one more card lower than the jack<br>
         </div></details>
-<details class="item prop"><summary><code><span class="prop-badge">prop</span> <span class="prop-name">voids</span></code></summary><div class="doc">Number of suits in which no card is held.</div></details>
+<details class="item prop" id="Hand.voids"><summary><code><span class="prop-badge">prop</span> <span class="prop-name">voids</span></code></summary><div class="doc">Number of suits in which no card is held.</div></details>
 </div></details>
 </div></details>
 
-<details class="section" open><summary>Other Bridge Concept Classes</summary><div class="section-body"><details class="item cls"><summary><code><span class="kw">class</span> <span class="cls-name">Auction</span>(dealer, bids=None)</code></summary><div class="doc init-doc">Create a new Auction.  <em>bids</em> is an optional comma-separated call string.</div><div class="methods"><details class="item fn"><summary><code><span class="fn-name">add</span>(self, call)</code></summary></details>
-<details class="item fn"><summary><code><span class="fn-name">add_call</span>(self, call)</code></summary></details>
-<details class="item fn"><summary><code><span class="fn-name">clone</span>(self)</code></summary></details>
-<details class="item fn"><summary><code><span class="fn-name">contract</span>(self)</code></summary><div class="doc">Return the DeclaredContract, or None for a passout.  If the auction<br>
+<details class="section" open><summary>Other Bridge Concept Classes</summary><div class="section-body"><details class="item cls" id="Auction"><summary><code><span class="kw">class</span> <span class="cls-name">Auction</span>(dealer, bids=None)</code></summary><div class="doc init-doc">Create a new Auction.  <em>bids</em> is an optional comma-separated call string.</div><div class="methods"><details class="item fn" id="Auction.add"><summary><code><span class="fn-name">add</span>(self, call)</code></summary></details>
+<details class="item fn" id="Auction.add_call"><summary><code><span class="fn-name">add_call</span>(self, call)</code></summary></details>
+<details class="item fn" id="Auction.clone"><summary><code><span class="fn-name">clone</span>(self)</code></summary></details>
+<details class="item fn" id="Auction.contract"><summary><code><span class="fn-name">contract</span>(self)</code></summary><div class="doc">Return the DeclaredContract, or None for a passout.  If the auction<br>
 is not yet finished, returns what the contract will be assuming<br>
 all players Pass from hereon.</div></details>
-<details class="item fn"><summary><code><span class="fn-name">done</span>(self) -&gt; bool</code></summary></details>
-<details class="item fn"><summary><code><span class="fn-name">final_contract</span>(self)</code></summary><div class="doc">Return the DeclaredContract, or None for a passout.  If the auction<br>
+<details class="item fn" id="Auction.done"><summary><code><span class="fn-name">done</span>(self) -&gt; bool</code></summary></details>
+<details class="item fn" id="Auction.final_contract"><summary><code><span class="fn-name">final_contract</span>(self)</code></summary><div class="doc">Return the DeclaredContract, or None for a passout.  If the auction<br>
 is not yet finished, returns what the contract will be assuming<br>
 all players Pass from hereon.</div></details>
-<details class="item fn"><summary><code><span class="fn-name">legal_calls</span>(self)</code></summary><div class="doc">Return list of legal calls, or None if the auction is over.</div></details>
-<details class="item fn"><summary><code><span class="fn-name">min_bid</span>(self)</code></summary><div class="doc">Lowest legal bid, or None if already at 7NT.</div></details>
-<details class="item fn"><summary><code><span class="fn-name">turn</span>(self) -&gt; bridgepandas.direction.Direction</code></summary><div class="doc">Which direction is next to call.</div></details>
-<details class="item fn"><summary><code><span class="fn-name">undo</span>(self)</code></summary></details>
-<details class="item fn"><summary><code><span class="fn-name">undo_call</span>(self)</code></summary></details>
+<details class="item fn" id="Auction.legal_calls"><summary><code><span class="fn-name">legal_calls</span>(self)</code></summary><div class="doc">Return list of legal calls, or None if the auction is over.</div></details>
+<details class="item fn" id="Auction.min_bid"><summary><code><span class="fn-name">min_bid</span>(self)</code></summary><div class="doc">Lowest legal bid, or None if already at 7NT.</div></details>
+<details class="item fn" id="Auction.turn"><summary><code><span class="fn-name">turn</span>(self) -&gt; bridgepandas.direction.Direction</code></summary><div class="doc">Which direction is next to call.</div></details>
+<details class="item fn" id="Auction.undo"><summary><code><span class="fn-name">undo</span>(self)</code></summary></details>
+<details class="item fn" id="Auction.undo_call"><summary><code><span class="fn-name">undo_call</span>(self)</code></summary></details>
 </div></details>
-<details class="item cls"><summary><code><span class="kw">class</span> <span class="cls-name">Bid</span>(*args)</code></summary><div class="doc init-doc">Initialize self.  See help(type(self)) for accurate signature.</div><div class="methods"><details class="item fn"><summary><code><span class="fn-name">all_above</span>(self)</code></summary></details>
-<details class="item fn"><summary><code><span class="fn-name">all_bids</span>()</code></summary></details>
-<details class="item fn"><summary><code><span class="fn-name">all_eq_above</span>(self)</code></summary></details>
-<details class="item fn"><summary><code><span class="fn-name">cmp</span>(self, other) -&gt; int</code></summary></details>
-<details class="item fn"><summary><code><span class="fn-name">min_bid_strain</span>(self, strain: str) -&gt; &#x27;Bid&#x27;</code></summary><div class="doc">Return the lowest bid at or above self in the given strain.</div></details>
-<details class="item fn"><summary><code><span class="fn-name">step</span>(self) -&gt; int</code></summary></details>
+<details class="item cls" id="Bid"><summary><code><span class="kw">class</span> <span class="cls-name">Bid</span>(*args)</code></summary><div class="doc init-doc">Initialize self.  See help(type(self)) for accurate signature.</div><div class="methods"><details class="item fn" id="Bid.all_above"><summary><code><span class="fn-name">all_above</span>(self)</code></summary></details>
+<details class="item fn" id="Bid.all_bids"><summary><code><span class="fn-name">all_bids</span>()</code></summary></details>
+<details class="item fn" id="Bid.all_eq_above"><summary><code><span class="fn-name">all_eq_above</span>(self)</code></summary></details>
+<details class="item fn" id="Bid.cmp"><summary><code><span class="fn-name">cmp</span>(self, other) -&gt; int</code></summary></details>
+<details class="item fn" id="Bid.min_bid_strain"><summary><code><span class="fn-name">min_bid_strain</span>(self, strain: str) -&gt; &#x27;Bid&#x27;</code></summary><div class="doc">Return the lowest bid at or above self in the given strain.</div></details>
+<details class="item fn" id="Bid.step"><summary><code><span class="fn-name">step</span>(self) -&gt; int</code></summary></details>
 </div></details>
-<details class="item cls"><summary><code><span class="kw">class</span> <span class="cls-name">Call</span>(value)</code></summary><div class="doc">A legal auction call: bid, Pass, Double, or Redouble.</div><div class="doc init-doc">Initialize self.  See help(type(self)) for accurate signature.</div><div class="methods"><details class="item fn"><summary><code><span class="fn-name">is_bid</span>(self) -&gt; bool</code></summary></details>
-<details class="item fn"><summary><code><span class="fn-name">is_pass</span>(self) -&gt; bool</code></summary></details>
+<details class="item cls" id="Call"><summary><code><span class="kw">class</span> <span class="cls-name">Call</span>(value)</code></summary><div class="doc">A legal auction call: bid, Pass, Double, or Redouble.</div><div class="doc init-doc">Initialize self.  See help(type(self)) for accurate signature.</div><div class="methods"><details class="item fn" id="Call.is_bid"><summary><code><span class="fn-name">is_bid</span>(self) -&gt; bool</code></summary></details>
+<details class="item fn" id="Call.is_pass"><summary><code><span class="fn-name">is_pass</span>(self) -&gt; bool</code></summary></details>
 </div></details>
-<details class="item cls"><summary><code><span class="kw">class</span> <span class="cls-name">Contract</span>(spec)</code></summary><div class="doc init-doc">Initialize self.  See help(type(self)) for accurate signature.</div></details>
-<details class="item cls"><summary><code><span class="kw">class</span> <span class="cls-name">DeclaredContract</span>(*args)</code></summary><div class="doc init-doc">Initialize self.  See help(type(self)) for accurate signature.</div><div class="methods"><details class="item fn"><summary><code><span class="fn-name">ds</span>(self) -&gt; str</code></summary><div class="doc">Two-character declarer+strain string, e.g. &#x27;NS&#x27;.</div></details>
+<details class="item cls" id="Contract"><summary><code><span class="kw">class</span> <span class="cls-name">Contract</span>(spec)</code></summary><div class="doc init-doc">Initialize self.  See help(type(self)) for accurate signature.</div></details>
+<details class="item cls" id="DeclaredContract"><summary><code><span class="kw">class</span> <span class="cls-name">DeclaredContract</span>(*args)</code></summary><div class="doc init-doc">Initialize self.  See help(type(self)) for accurate signature.</div><div class="methods"><details class="item fn" id="DeclaredContract.ds"><summary><code><span class="fn-name">ds</span>(self) -&gt; str</code></summary><div class="doc">Two-character declarer+strain string, e.g. &#x27;NS&#x27;.</div></details>
 </div></details>
-<details class="item cls"><summary><code><span class="kw">class</span> <span class="cls-name">Direction</span>(name)</code></summary><div class="doc init-doc">Initialize self.  See help(type(self)) for accurate signature.</div><div class="methods"><details class="item fn"><summary><code><span class="fn-name">all_dirs</span>() -&gt; list</code></summary></details>
-<details class="item fn"><summary><code><span class="fn-name">dir_pair</span>(self) -&gt; str</code></summary></details>
-<details class="item fn"><summary><code><span class="fn-name">is_ew</span>(self) -&gt; bool</code></summary></details>
-<details class="item fn"><summary><code><span class="fn-name">is_ns</span>(self) -&gt; bool</code></summary></details>
-<details class="item fn"><summary><code><span class="fn-name">opp_side</span>(self, other) -&gt; bool</code></summary></details>
-<details class="item fn"><summary><code><span class="fn-name">same_side</span>(self, other) -&gt; bool</code></summary></details>
-<details class="item fn"><summary><code><span class="fn-name">side_index</span>(self) -&gt; int</code></summary></details>
+<details class="item cls" id="Direction"><summary><code><span class="kw">class</span> <span class="cls-name">Direction</span>(name)</code></summary><div class="doc init-doc">Initialize self.  See help(type(self)) for accurate signature.</div><div class="methods"><details class="item fn" id="Direction.all_dirs"><summary><code><span class="fn-name">all_dirs</span>() -&gt; list</code></summary></details>
+<details class="item fn" id="Direction.dir_pair"><summary><code><span class="fn-name">dir_pair</span>(self) -&gt; str</code></summary></details>
+<details class="item fn" id="Direction.is_ew"><summary><code><span class="fn-name">is_ew</span>(self) -&gt; bool</code></summary></details>
+<details class="item fn" id="Direction.is_ns"><summary><code><span class="fn-name">is_ns</span>(self) -&gt; bool</code></summary></details>
+<details class="item fn" id="Direction.opp_side"><summary><code><span class="fn-name">opp_side</span>(self, other) -&gt; bool</code></summary></details>
+<details class="item fn" id="Direction.same_side"><summary><code><span class="fn-name">same_side</span>(self, other) -&gt; bool</code></summary></details>
+<details class="item fn" id="Direction.side_index"><summary><code><span class="fn-name">side_index</span>(self) -&gt; int</code></summary></details>
 </div></details>
-<details class="item cls"><summary><code><span class="kw">class</span> <span class="cls-name">TableVuln</span>(data)</code></summary><div class="doc init-doc">Initialize self.  See help(type(self)) for accurate signature.</div><div class="methods"><details class="item fn"><summary><code><span class="fn-name">all_vulns</span>() -&gt; list</code></summary></details>
-<details class="item fn"><summary><code><span class="fn-name">ew_vul</span>(self) -&gt; bool</code></summary></details>
-<details class="item fn"><summary><code><span class="fn-name">is_vul</span>(self, direction) -&gt; bool</code></summary></details>
-<details class="item fn"><summary><code><span class="fn-name">ns_vul</span>(self) -&gt; bool</code></summary></details>
+<details class="item cls" id="TableVuln"><summary><code><span class="kw">class</span> <span class="cls-name">TableVuln</span>(data)</code></summary><div class="doc init-doc">Initialize self.  See help(type(self)) for accurate signature.</div><div class="methods"><details class="item fn" id="TableVuln.all_vulns"><summary><code><span class="fn-name">all_vulns</span>() -&gt; list</code></summary></details>
+<details class="item fn" id="TableVuln.ew_vul"><summary><code><span class="fn-name">ew_vul</span>(self) -&gt; bool</code></summary></details>
+<details class="item fn" id="TableVuln.is_vul"><summary><code><span class="fn-name">is_vul</span>(self, direction) -&gt; bool</code></summary></details>
+<details class="item fn" id="TableVuln.ns_vul"><summary><code><span class="fn-name">ns_vul</span>(self) -&gt; bool</code></summary></details>
 </div></details>
 </div></details>
 
@@ -325,15 +336,24 @@ all players Pass from hereon.</div></details>
 <em>contract</em> is a Contract, DeclaredContract, Bid, or string like &quot;3Nx&quot;.<br>
 <em>tricks</em> is the total tricks taken (0–13).<br>
 <em>is_vulnerable</em> is a bool.</div></details>
-<details class="item fn"><summary><code><span class="fn-name">is_declarer_vulnerable</span>(declarer, vuln) -&gt; bool</code></summary><div class="doc">Return whether <em>declarer</em> is vulnerable.<br>
+<details class="item fn"><summary><code><span class="fn-name">is_declarer_vulnerable</span>(declarer, table_vuln) -&gt; bool</code></summary><div class="doc">Return whether <em>declarer</em> is vulnerable.<br>
 <br>
 <em>declarer</em> is a Direction or W/N/E/S string.<br>
-<em>vuln</em> is a TableVuln object or any string accepted by TableVuln() (-, e, n, b, ew, ns, both, …).</div></details>
+<em>table_vuln</em> is a TableVuln object or any string accepted by TableVuln() (-, e, n, b, ew, ns, both, …).</div></details>
 <details class="item fn"><summary><code><span class="fn-name">scorediff_imps</span>(diff: int) -&gt; int</code></summary><div class="doc">Convert (my_score - their_score) to IMPs.</div></details>
 <details class="item fn"><summary><code><span class="fn-name">scorediff_matchpoints</span>(diff: int) -&gt; float</code></summary><div class="doc">Convert (my_score - their_score) to matchpoints on a 0/0.5/1 scale.</div></details>
-<details class="item fn"><summary><code><span class="fn-name">board_number_to_dealer_vuln</span>(num: int)</code></summary><div class="doc">Return (dealer: Direction, vuln: TableVuln) for a board number (1-based).</div></details>
+<details class="item fn"><summary><code><span class="fn-name">board_number_to_dealer_vuln</span>(num: int)</code></summary><div class="doc">Return the tuple (dealer: Direction, vuln: TableVuln) for a board number (1-based).</div></details>
 <details class="item fn"><summary><code><span class="fn-name">dealer_vuln_to_board_number</span>(dealer, vuln) -&gt; int</code></summary><div class="doc">Return the board number (1-based) for a given dealer and vulnerability.</div></details>
 </div></details>
 
+  <script>
+    function openTarget() {
+      var el = document.getElementById(location.hash.slice(1));
+      while (el) { if (el.tagName === 'DETAILS') el.open = true; el = el.parentElement; }
+      if (el) el.scrollIntoView();
+    }
+    window.addEventListener('hashchange', openTarget);
+    if (location.hash) openTarget();
+  </script>
 </body>
 </html>

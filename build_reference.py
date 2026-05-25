@@ -11,23 +11,29 @@ ROOT = Path(__file__).parent
 sys.path.insert(0, str(ROOT / "python"))
 import bridgepandas as bp  # noqa: E402
 
-H_METRICS = [
+H_NUMERIC = [
     ("h.SPADES, h.HEARTS, h.DIAMONDS, h.CLUBS", "Suit length (0–13)."),
-    ("h.HCP",       "High card points: A=4, K=3, Q=2, J=1."),
+    ("h.HCP",        "High card points: A=4, K=3, Q=2, J=1."),
     ("h.AKQ_POINTS", "AKQ points: A=3, K=2, Q=1."),
-    ("h.CONTROLS",  "Controls: A=2, K=1."),
+    ("h.CONTROLS",   "Controls: A=2, K=1."),
     ("h.ACES, h.KINGS, h.QUEENS, h.JACKS, h.TENS", "Count of that honor held."),
     ("h.TOP2 … h.TOP5", "Count of top-2 through top-5 honors held across all suits."),
     ("h.QUICK_TRICKS_X2", "Quick tricks × 2 (integer): AK=4, AQ=3, A=2, KQ=2, Kx=1. Compare as <code>h.QUICK_TRICKS_X2 &gt;= 3</code> for ≥1.5 quick tricks."),
     ("h.LONGEST_SUIT, h.SECOND_SUIT, h.SHORTEST_SUIT", "Length of the longest / 2nd-longest / shortest suit."),
     ("h.VOIDS, h.SINGLETONS, h.DOUBLETONS", "Number of suits with exactly 0, 1, or 2 cards."),
+    ("h.NUM(spec)", 'Count of cards matching a spec — same syntax as <a href="#Hand.num"><code>Hand.num()</code></a>, e.g. <code>h.NUM("A")</code> counts aces.'),
+]
+
+H_BOOLEAN = [
     ("h.MATCH_SHAPE(spec)", 'Shape constraint, e.g. <code>"any 5332"</code>, <code>"44xx"</code>, <code>"4432 + 4333"</code>.'),
-    ("h.NUM(spec)", 'Count of cards matching a spec — same syntax as <code>Hand.num()</code>, e.g. <code>h.NUM("A")</code> counts aces.'),
+    ("h.GOOD_SUIT(spec, suit)", 'Suit satisfies a holding pattern — same syntax as <a href="#Hand.good_suit"><code>Hand.good_suit()</code></a>, e.g. <code>h.GOOD_SUIT("AJx,KQx", "H")</code>.'),
+    ("h.HAS(card)", 'Hand contains a specific card, e.g. <code>h.HAS("SA")</code>.'),
     ("h.ANY(suit)", 'At least one card held in <em>suit</em>, e.g. <code>h.ANY("S")</code>.'),
     ("h.ALL_HANDS", 'Unconstrained — matches every possible hand.'),
-    ("h.GOOD_SUIT(spec, suit)", 'Suit satisfies a holding pattern — same syntax as <code>Hand.good_suit()</code>, e.g. <code>h.GOOD_SUIT("AJx,KQx", "H")</code>.'),
-    ("h.HAS(card)", 'Hand contains a specific card, e.g. <code>h.HAS("SA")</code>.'),
-    ("h.NORTH(hs), h.SOUTH(hs), …", "Apply a hand constraint to a specific seat to get a deal constraint."),
+]
+
+H_DEALSET = [
+    ("h.NORTH(hs), h.SOUTH(hs), h.EAST(hs), h.WEST(hs)", "Apply a hand constraint to a specific seat to get a deal constraint."),
 ]
 
 SECTIONS = [
@@ -60,23 +66,25 @@ def get_sig(obj) -> str:
         return "(...)"
 
 
-def render_fn(fn, name: str | None = None) -> str:
+def render_fn(fn, name: str | None = None, anchor: str | None = None) -> str:
     name = name or fn.__name__
     doc = fmt_doc(inspect.getdoc(fn) or "")
     inner = f'<div class="doc">{doc}</div>' if doc else ""
+    id_attr = f' id="{esc(anchor)}"' if anchor else ""
     return (
-        f'<details class="item fn">'
+        f'<details class="item fn"{id_attr}>'
         f'<summary><code><span class="fn-name">{esc(name)}</span>{get_sig(fn)}</code></summary>'
         f'{inner}'
         f'</details>\n'
     )
 
 
-def render_prop(name: str, prop: property) -> str:
+def render_prop(name: str, prop: property, anchor: str | None = None) -> str:
     doc = fmt_doc(inspect.getdoc(prop) or "")
     inner = f'<div class="doc">{doc}</div>' if doc else ""
+    id_attr = f' id="{esc(anchor)}"' if anchor else ""
     return (
-        f'<details class="item prop">'
+        f'<details class="item prop"{id_attr}>'
         f'<summary><code><span class="prop-badge">prop</span> '
         f'<span class="prop-name">{esc(name)}</span></code></summary>'
         f'{inner}'
@@ -98,12 +106,13 @@ def render_class(cls) -> str:
     for mname, mobj in sorted(cls.__dict__.items()):
         if mname.startswith("_"):
             continue
+        anchor = f"{name}.{mname}"
         if isinstance(mobj, property):
-            members_html += render_prop(mname, mobj)
+            members_html += render_prop(mname, mobj, anchor=anchor)
         else:
             fn = mobj.__func__ if isinstance(mobj, (staticmethod, classmethod)) else mobj
             if callable(fn):
-                members_html += render_fn(fn, mname)
+                members_html += render_fn(fn, mname, anchor=anchor)
 
     inner = ""
     if class_doc:
@@ -114,7 +123,7 @@ def render_class(cls) -> str:
         inner += f'<div class="methods">{members_html}</div>'
 
     return (
-        f'<details class="item cls">'
+        f'<details class="item cls" id="{esc(name)}">'
         f'<summary><code><span class="kw">class</span> '
         f'<span class="cls-name">{esc(name)}</span>{get_sig(cls)}</code></summary>'
         f'{inner}'
@@ -122,21 +131,35 @@ def render_class(cls) -> str:
     )
 
 
-def render_handsets() -> str:
-    rows = "".join(
+def _metrics_table(rows: list) -> str:
+    return '<table class="metrics">' + "".join(
         f'<tr><td><code>{name}</code></td><td>{desc}</td></tr>'
-        for name, desc in H_METRICS
-    )
+        for name, desc in rows
+    ) + '</table>'
+
+
+def render_handsets() -> str:
     return (
         f'<div class="narrative">'
         f'<p>All hand constraints are built from <code>h</code>. '
-        f'Metrics compare with <code>==</code>, <code>!=</code>, <code>&lt;</code>, '
-        f'<code>&lt;=</code>, <code>&gt;</code>, <code>&gt;=</code> to produce hand sets. '
         f'Hand sets combine with <code>&amp;</code> (and), <code>|</code> (or), '
         f'<code>~</code> (not). Pass them as constraints to <code>random_deals()</code>.</p>'
-        f'<p><strong>Example:</strong> '
-        f'<code>(h.HCP &gt;= 15) &amp; (h.HCP &lt;= 17) &amp; (h.SPADES &gt;= 5)</code></p>'
-        f'<table class="metrics">{rows}</table>'
+        f'<p>Numeric metrics can be added together and multiplied by constants before comparing, '
+        f'so composite rules are expressed naturally.</p>'
+        f'<p><strong>Example (1NT Opener):</strong> '
+        f'<code>(h.HCP &gt;= 15) &amp; (h.HCP &lt;= 17) &amp; h.MATCH_SHAPE("any 4333 + any 4432 + any 5332")</code></p>'
+        f'<p><strong>Example (rule of 20):</strong> '
+        f'<code>h.HCP + h.LONGEST_SUIT + h.SECOND_SUIT &gt;= 20</code></p>'
+        f'<h3 class="metrics-heading">Numeric metrics</h3>'
+        f'<p class="metrics-sub">Compare with <code>==</code>, <code>!=</code>, <code>&lt;</code>, '
+        f'<code>&lt;=</code>, <code>&gt;</code>, <code>&gt;=</code> to produce a hand set.</p>'
+        f'{_metrics_table(H_NUMERIC)}'
+        f'<h3 class="metrics-heading">Boolean constraints</h3>'
+        f'<p class="metrics-sub">These return a hand set directly — no comparison needed.</p>'
+        f'{_metrics_table(H_BOOLEAN)}'
+        f'<h3 class="metrics-heading">DealSet converters</h3>'
+        f'<p class="metrics-sub">Lift a hand constraint to a full-deal constraint.</p>'
+        f'{_metrics_table(H_DEALSET)}'
         f'</div>'
     )
 
@@ -252,6 +275,17 @@ details.item > summary code { font-size: 0.9rem; background: none; }
     color: #333;
 }
 .narrative p { margin: 0.4rem 0; }
+h3.metrics-heading {
+    font-size: 0.85rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #1a3a7c;
+    margin: 1rem 0 0.1rem;
+    border-bottom: 1px solid #d0d7e3;
+    padding-bottom: 0.2rem;
+}
+p.metrics-sub { margin: 0.2rem 0 0.3rem; color: #555; font-size: 0.85rem; }
 table.metrics {
     width: 100%;
     border-collapse: collapse;
@@ -319,6 +353,15 @@ HTML = """\
   <h1>bridgepandas</h1>
   <p class="subtitle">Click any item to expand. Classes in blue, functions in green, properties in orange.</p>
   {body}
+  <script>
+    function openTarget() {{
+      var el = document.getElementById(location.hash.slice(1));
+      while (el) {{ if (el.tagName === 'DETAILS') el.open = true; el = el.parentElement; }}
+      if (el) el.scrollIntoView();
+    }}
+    window.addEventListener('hashchange', openTarget);
+    if (location.hash) openTarget();
+  </script>
 </body>
 </html>
 """
