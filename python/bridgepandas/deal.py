@@ -202,15 +202,17 @@ def random_deals(
         from .hand import random_deals as _numpy_random_deals
         return _numpy_random_deals(n, seed=seed)
 
-    # Fast path: BDD sampling when no plain callables are present
-    # HandSets are not callable; str/int/None are also not callable
-    use_fast = accept is None and not any(
-        callable(x) and not hasattr(x, "contains")
-        for x in specs
-    )
+    # BDD sampling is useful when at least one direction has a HandSet/str/int
+    # constraint, and no direction uses a plain callable.
+    has_bdd_spec = any(x is not None and not (callable(x) and not hasattr(x, "contains"))
+                       for x in specs)
+    has_plain_callable = any(callable(x) and not hasattr(x, "contains") for x in specs)
+    can_use_bdd = has_bdd_spec and not has_plain_callable
 
-    if use_fast:
-        return _fast_random_deals(n, west, north, east, south, seed)
+    if can_use_bdd:
+        if accept is None:
+            return _fast_random_deals(n, west, north, east, south, seed)
+        return _bdd_random_deals_with_accept(n, west, north, east, south, seed, accept, fail_count)
     return _slow_random_deals(n, west, north, east, south, accept, seed, fail_count)
 
 
@@ -234,6 +236,62 @@ def _fast_random_deals(n, west, north, east, south, seed):
 
     ds = m.WEST(to_hs(west)) & m.NORTH(to_hs(north)) & m.EAST(to_hs(east)) & m.SOUTH(to_hs(south))
     return ds.sample_df(n, seed=seed)
+
+
+def _bdd_random_deals_with_accept(n, west, north, east, south, seed, accept, fail_count):
+    """BDD sampling + accept post-filter.
+
+    Samples batches from the BDD-constrained deal space and applies accept()
+    to each deal until n passing deals are collected.
+    """
+    from .handset import hand_makers, HandSet
+    m = hand_makers
+
+    def to_hs(spec):
+        if spec is None:
+            return m.ANY
+        if isinstance(spec, HandSet):
+            return spec
+        mask = _spec_to_mask(spec)
+        if mask is None:
+            raise TypeError(
+                f"Unsupported spec type {type(spec).__name__!r} in fast path. "
+                "Direction specs must be None, str, int, or HandSet."
+            )
+        return _mask_to_handset(mask)
+
+    ds = m.WEST(to_hs(west)) & m.NORTH(to_hs(north)) & m.EAST(to_hs(east)) & m.SOUTH(to_hs(south))
+
+    rng = np.random.default_rng(seed)
+    names = ["west", "north", "east", "south"]
+    collected: dict[str, list[int]] = {name: [] for name in names}
+    hits = 0
+    attempts = 0
+    batch_size = max(n, 200)
+
+    while hits < n:
+        batch_seed = int(rng.integers(0, 2**31))
+        batch = ds.sample_df(batch_size, seed=batch_seed)
+        for idx in range(len(batch)):
+            row = batch.iloc[idx]
+            deal = Deal(row)
+            if accept(deal):
+                for name in names:
+                    collected[name].append(int(row[name]))
+                hits += 1
+                if hits == n:
+                    break
+        attempts += batch_size
+        if fail_count is not None and attempts >= fail_count and hits == 0:
+            raise ValueError(
+                f"No deals found after {fail_count} BDD-sampled candidates — "
+                "is your accept() constraint satisfiable?"
+            )
+
+    return pd.DataFrame({
+        name: BridgeHandArray(np.array(collected[name], dtype=np.int64))
+        for name in names
+    })
 
 
 def _slow_random_deals(n, west, north, east, south, accept, seed, fail_count):

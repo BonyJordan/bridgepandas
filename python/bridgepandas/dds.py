@@ -84,11 +84,9 @@ def _get_lib() -> ctypes.CDLL:
 # PBN string builder
 # ---------------------------------------------------------------------------
 
-_RANK_BITS: list[tuple[int, str]] = [(12 - i, ch) for i, ch in enumerate(RANKS)]
-
 
 def _suit_mask_to_str(mask: int) -> str:
-    return "".join(ch for bit, ch in _RANK_BITS if mask & (1 << bit))
+    return "".join(ch for i, ch in enumerate(RANKS) if mask & (1 << i))
 
 
 def _hand_to_pbn(north: int, east: int, south: int, west: int) -> bytes:
@@ -111,6 +109,7 @@ def _solve_batch(
     df: pd.DataFrame,
     trump_arr: np.ndarray,
     leader_arr: np.ndarray,
+    progress: bool = True,
 ) -> np.ndarray:
     """
     Solve all rows, returning int8 array of tricks for the *leader's* side.
@@ -130,35 +129,50 @@ def _solve_batch(
     boards = _BoardsPBN()
     solved = _SolvedBoards()
 
-    for start in range(0, n_rows, _MAXNOOFBOARDS):
-        end = min(start + _MAXNOOFBOARDS, n_rows)
-        count = end - start
-        boards.no_of_boards = count
+    pbar = None
+    if progress:
+        try:
+            from tqdm.auto import tqdm
+            pbar = tqdm(total=n_rows, desc="DDS", unit="board")
+        except ImportError:
+            pass
 
-        for i in range(count):
-            idx = start + i
-            pbn = _hand_to_pbn(
-                int(north_vals[idx]),
-                int(east_vals[idx]),
-                int(south_vals[idx]),
-                int(west_vals[idx]),
-            )
-            d = boards.deals[i]
-            d.trump = int(trump_arr[idx])
-            d.first = int(leader_arr[idx])
-            d.currentTrickSuit[0] = d.currentTrickSuit[1] = d.currentTrickSuit[2] = 0
-            d.currentTrickRank[0] = d.currentTrickRank[1] = d.currentTrickRank[2] = 0
-            d.remainCards = pbn
-            boards.target[i]    = -1
-            boards.solutions[i] = 1
-            boards.mode[i]      = 1
+    try:
+        for start in range(0, n_rows, _MAXNOOFBOARDS):
+            end = min(start + _MAXNOOFBOARDS, n_rows)
+            count = end - start
+            boards.no_of_boards = count
 
-        rc = lib.SolveAllBoards(ctypes.byref(boards), ctypes.byref(solved))
-        if rc != 1:
-            raise RuntimeError(f"SolveAllBoards returned error code {rc}")
+            for i in range(count):
+                idx = start + i
+                pbn = _hand_to_pbn(
+                    int(north_vals[idx]),
+                    int(east_vals[idx]),
+                    int(south_vals[idx]),
+                    int(west_vals[idx]),
+                )
+                d = boards.deals[i]
+                d.trump = int(trump_arr[idx])
+                d.first = int(leader_arr[idx])
+                d.currentTrickSuit[0] = d.currentTrickSuit[1] = d.currentTrickSuit[2] = 0
+                d.currentTrickRank[0] = d.currentTrickRank[1] = d.currentTrickRank[2] = 0
+                d.remainCards = pbn
+                boards.target[i]    = -1
+                boards.solutions[i] = 1
+                boards.mode[i]      = 1
 
-        for i in range(count):
-            results[start + i] = solved.solved_board[i].score[0]
+            rc = lib.SolveAllBoards(ctypes.byref(boards), ctypes.byref(solved))
+            if rc != 1:
+                raise RuntimeError(f"SolveAllBoards returned error code {rc}")
+
+            for i in range(count):
+                results[start + i] = solved.solved_board[i].score[0]
+
+            if pbar is not None:
+                pbar.update(count)
+    finally:
+        if pbar is not None:
+            pbar.close()
 
     return results
 
@@ -189,6 +203,7 @@ def solve(
     df: pd.DataFrame,
     trump: int | str,
     leader: int | str,
+    progress: bool = True,
 ) -> np.ndarray:
     """
     Compute double-dummy trick counts for every deal in *df*.
@@ -201,6 +216,8 @@ def solve(
         0/S, 1/H, 2/D, 3/C, 4/NT.
     leader : int or str
         0/N, 1/E, 2/S, 3/W — direction of the opening lead.
+    progress : bool
+        Show a progress bar (requires tqdm; silently skipped if not installed).
 
     Returns
     -------
@@ -210,7 +227,7 @@ def solve(
     n = len(df)
     trump_arr  = np.full(n, _parse_trump(trump),  dtype=np.int8)
     leader_arr = np.full(n, _parse_leader(leader), dtype=np.int8)
-    return _solve_batch(df, trump_arr, leader_arr)
+    return _solve_batch(df, trump_arr, leader_arr, progress=progress)
 
 
 def _dds_key(dc) -> str:
@@ -223,6 +240,7 @@ def add_dds(
     contracts,
     col_name: str,
     vuln,
+    progress: bool = True,
 ) -> None:
     """
     Solve double-dummy and score each deal, adding the NS score as a new column.
@@ -243,6 +261,8 @@ def add_dds(
     vuln : str | Vuln | pd.Series
         Vulnerability. A scalar is applied to every row; a Series supplies
         per-row values.
+    progress : bool
+        Show a progress bar (requires tqdm; silently skipped if not installed).
     """
     from .auction import DeclaredContract
     from .scoring import score_ns
@@ -275,7 +295,7 @@ def add_dds(
             leader_arr[i] = _LEADER_MAP[str(dc.declarer + 1)]
 
         sub_df = df.iloc[needs_solve]
-        leader_tricks = _solve_batch(sub_df, trump_arr[needs_solve], leader_arr[needs_solve])
+        leader_tricks = _solve_batch(sub_df, trump_arr[needs_solve], leader_arr[needs_solve], progress=progress)
 
         for j, i in enumerate(needs_solve):
             cache.iat[i][keys[i]] = 13 - int(leader_tricks[j])
