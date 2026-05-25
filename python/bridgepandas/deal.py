@@ -16,7 +16,10 @@ class Deal:
     A single bridge deal: four hands stored as Hand (int subclass) fields.
 
     Immutable and hashable, so deals can be used as dict keys or in sets.
-    Printing deal.west (etc.) shows the S/H/D/C hand string.
+    Each hand is accessible as an attribute, a full lowercase name, a
+    single-letter direction, or a Direction object: ``deal.west``,
+    ``deal["west"]``, ``deal["W"]``, or ``deal[direction]``.
+    Printing a hand shows the S/H/D/C hand string.
     """
 
     __slots__ = ("west", "north", "east", "south")
@@ -46,6 +49,9 @@ class Deal:
                 "west": "west", "north": "north", "east": "east", "south": "south"}
 
     def __getitem__(self, key):
+        from .direction import Direction
+        if isinstance(key, Direction):
+            key = str(key)
         attr = Deal._KEY_MAP.get(key)
         if attr is None:
             raise KeyError(f"Invalid direction {key!r}; use 'W', 'N', 'E', or 'S'")
@@ -161,12 +167,12 @@ def _mask_to_handset(mask: int):
     """Convert an int64 card-presence bitmask to a HandSet (requires each card)."""
     from .handset import hand_makers
     m = hand_makers
-    hs = m.ANY
+    hs = m.ALL_HANDS
     for bit in range(52):
         if (mask >> bit) & 1:
             suit = _SUITS_BY_OFFSET[bit // 13]
             rank = RANKS[bit % 13]
-            hs = hs & m.CARD(f"{suit}{rank}")
+            hs = hs & m.HAS(f"{suit}{rank}")
     return hs
 
 
@@ -232,7 +238,7 @@ def _fast_random_deals(n, west, north, east, south, seed):
 
     def to_hs(spec):
         if spec is None:
-            return m.ANY
+            return m.ALL_HANDS
         if isinstance(spec, HandSet):
             return spec
         mask = _spec_to_mask(spec)
@@ -258,7 +264,7 @@ def _bdd_random_deals_with_accept(n, west, north, east, south, seed, accept, fai
 
     def to_hs(spec):
         if spec is None:
-            return m.ANY
+            return m.ALL_HANDS
         if isinstance(spec, HandSet):
             return spec
         mask = _spec_to_mask(spec)

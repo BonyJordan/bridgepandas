@@ -15,6 +15,7 @@ import re
 import numpy as np
 import pandas as pd
 from pandas.api.extensions import ExtensionArray, ExtensionDtype, register_extension_dtype
+from .shape import parse_shape_spec
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -133,6 +134,7 @@ class Hand(int):
 
     @property
     def hcp(self) -> int:
+        """High card points: A=4, K=3, Q=2, J=1."""
         v = int(self)
         return sum(
             pts
@@ -143,6 +145,7 @@ class Hand(int):
 
     @property
     def akq_points(self) -> int:
+        """AKQ points: A=3, K=2, Q=1 (jacks excluded)."""
         v = int(self)
         return sum(
             pts
@@ -153,6 +156,7 @@ class Hand(int):
 
     @property
     def controls(self) -> int:
+        """Control count: A=2, K=1."""
         v = int(self)
         return sum(
             pts
@@ -162,16 +166,24 @@ class Hand(int):
         )
 
     @property
-    def spades(self) -> int:   return self._suit_len(39)
+    def spades(self) -> int:
+        """Number of spades held."""
+        return self._suit_len(39)
 
     @property
-    def hearts(self) -> int:   return self._suit_len(26)
+    def hearts(self) -> int:
+        """Number of hearts held."""
+        return self._suit_len(26)
 
     @property
-    def diamonds(self) -> int: return self._suit_len(13)
+    def diamonds(self) -> int:
+        """Number of diamonds held."""
+        return self._suit_len(13)
 
     @property
-    def clubs(self) -> int:    return self._suit_len(0)
+    def clubs(self) -> int:
+        """Number of clubs held."""
+        return self._suit_len(0)
 
     @property
     def pattern(self) -> tuple[int, int, int, int]:
@@ -190,21 +202,51 @@ class Hand(int):
         return tuple(sorted(self.pattern, reverse=True))
 
     @property
+    def longest_suit(self) -> int:
+        """Length of the longest suit."""
+        return self.shape[0]
+
+    @property
+    def second_suit(self) -> int:
+        """Length of the second-longest suit."""
+        return self.shape[1]
+
+    @property
+    def shortest_suit(self) -> int:
+        """Length of the shortest suit."""
+        return self.shape[3]
+
+    @property
     def voids(self) -> int:
+        """Number of suits in which no card is held."""
         return sum(1 for off in (0, 13, 26, 39) if self._suit_len(off) == 0)
 
     @property
     def singletons(self) -> int:
+        """Number of suits in which exactly one card is held."""
         return sum(1 for off in (0, 13, 26, 39) if self._suit_len(off) == 1)
 
     @property
     def doubletons(self) -> int:
+        """Number of suits in which exactly two cards are held."""
         return sum(1 for off in (0, 13, 26, 39) if self._suit_len(off) == 2)
 
     def num(self, spec: str) -> int:
+        """Count number cards matching a definition.  Some examples:
+"A":    number of aces
+"S":    number of spades
+"HQ":   specifically the queen of hearts
+"HDK":  red kings
+"A,SK": aces or the king of spades (key cards for spades)
+        """
         return (int(self) & _parse_count_spec(spec)).bit_count()
 
     def suits_of(self, spec: str) -> int:
+        """Count suits exactly matching a holding pattern, some examples:
+"K":    singleton king
+"QJ":   queen-jack tight
+"Jx":   jack and exactly one more card lower than the jack
+        """
         patterns = _parse_holding_spec(spec)
         v = int(self)
         count = 0
@@ -219,6 +261,7 @@ class Hand(int):
 
     @property
     def quick_tricks(self) -> float:
+        """Quick tricks: AK=2, AQ=1.5, A=1, KQ=1, Kx=0.5."""
         v = int(self)
         total = 0
         for offset in (0, 13, 26, 39):
@@ -236,6 +279,7 @@ class Hand(int):
 
     @property
     def losers(self) -> int:
+        """Classic losing trick count"""
         v = int(self)
         total = 0
         for offset in (0, 13, 26, 39):
@@ -249,7 +293,87 @@ class Hand(int):
         return total
 
     def has(self, card: str) -> bool:
+        """Return True if this hand contains the given card, e.g. ``"SA"`` for ace of spades."""
         return bool(int(self) & (1 << _parse_card(card)))
+
+    def good_suit(self, spec: str, suit: str) -> bool:
+        """Return True if the holding in *suit* matches at least one pattern in the comma-separated *spec*.
+
+        Each pattern is a sequence of ranks followed by optional ``x`` wildcards.
+        The holding must be at least as long as the pattern, and each named rank
+        must be met or exceeded in that position.  An ``x`` ends the check
+        (remaining cards may be anything).
+
+        Examples::
+
+            hand.good_suit("A,Kx", "S")      # spade stopper (A or Kx)
+            hand.good_suit("AJx,KQx", "H")   # decent heart suit
+        """
+        offset = _SUIT_OFFSET[suit.upper()]
+        v = int(self)
+        ranks_desc = [i for i in range(12, -1, -1) if v & (1 << (offset + i))]
+        for pattern in spec.split(","):
+            if _match_good_suit(ranks_desc, pattern.strip().upper()):
+                return True
+        return False
+
+    def match_shape(self, spec: str) -> bool:
+        """Return True if this hand's suit-length distribution matches the shape spec.
+
+        Uses the same syntax as ``h.MATCH_SHAPE()``.
+
+        Examples::
+
+            hand.match_shape("any 5332")          # any 5-3-3-2 distribution
+            hand.match_shape("4432 + 4333")        # either shape
+            hand.match_shape("44xx - 4450")        # 4-4 majors, not 4-4-5-0
+        """
+        return self.pattern in parse_shape_spec(spec)
+
+
+def _match_good_suit(ranks_desc: list, pattern: str) -> bool:
+    """Return True if rank list (descending indices) satisfies pattern."""
+    if len(ranks_desc) < len(pattern):
+        return False
+    for pos, p in enumerate(pattern):
+        if p == 'X':
+            return True
+        if ranks_desc[pos] < _RANK_INDEX[p]:
+            return False
+    return True
+
+
+def _good_suit_array(data: np.ndarray, patterns: list, suit_offset: int) -> np.ndarray:
+    """Return bool array: True if the suit satisfies any pattern."""
+    u = data.view(np.uint64)
+    suit_bits = ((u >> np.uint64(suit_offset)) & np.uint64(0x1FFF)).astype(np.uint16)
+    suit_len = _POPCOUNT13[suit_bits]
+    result = np.zeros(len(data), dtype=bool)
+    for pattern in patterns:
+        match = suit_len >= np.int8(len(pattern))
+        for pos, p in enumerate(pattern):
+            if not match.any():
+                break
+            if p == 'X':
+                break
+            r = _RANK_INDEX[p]
+            above_mask = np.uint16(0x1FFF ^ int((1 << r) - 1))
+            above_count = _POPCOUNT13[suit_bits & above_mask]
+            match = match & (above_count >= np.int8(pos + 1))
+        result |= match
+    return result
+
+
+def _match_shape_array(data: np.ndarray, patterns: frozenset) -> np.ndarray:
+    """Return bool array: True if the hand's (S,H,D,C) length tuple is in patterns."""
+    u = data.view(np.uint64)
+    s_len = _POPCOUNT13[((u >> np.uint64(39)) & np.uint64(0x1FFF)).astype(np.uint16)].astype(np.uint16)
+    h_len = _POPCOUNT13[((u >> np.uint64(26)) & np.uint64(0x1FFF)).astype(np.uint16)].astype(np.uint16)
+    d_len = _POPCOUNT13[((u >> np.uint64(13)) & np.uint64(0x1FFF)).astype(np.uint16)].astype(np.uint16)
+    c_len = _POPCOUNT13[((u >> np.uint64(0))  & np.uint64(0x1FFF)).astype(np.uint16)].astype(np.uint16)
+    len_vec = (s_len << 12) | (h_len << 8) | (d_len << 4) | c_len
+    pat_vecs = np.array([(s << 12) | (h << 8) | (d << 4) | c for s, h, d, c in patterns], dtype=np.uint16)
+    return np.isin(len_vec, pat_vecs)
 
 
 # ---------------------------------------------------------------------------
@@ -638,6 +762,47 @@ DoubletonsAccessor = _make_shape_accessor("doubletons", 2)
 
 
 # ---------------------------------------------------------------------------
+# Sorted suit length accessors (longest_suit, second_suit, shortest_suit)
+# ---------------------------------------------------------------------------
+
+def _sorted_suit_lengths(data: np.ndarray) -> np.ndarray:
+    """Return (n, 4) int8 array of suit lengths sorted descending."""
+    lengths = np.stack(
+        [_suit_length_array(data, off) for off in (0, 13, 26, 39)], axis=1
+    )
+    return np.sort(lengths, axis=1)[:, ::-1]
+
+
+def _make_sorted_length_accessor(accessor_name: str, place: int):
+    @pd.api.extensions.register_series_accessor(accessor_name)
+    class _SortedLenAccessor:
+        def __new__(cls, series: pd.Series) -> pd.Series:
+            if not isinstance(series.array, BridgeHandArray):
+                raise AttributeError(
+                    f"{accessor_name} accessor is only valid for BridgeHand columns"
+                )
+            arr = series.array
+            values = pd.array(
+                _sorted_suit_lengths(arr._data)[:, place], dtype=pd.Int8Dtype()
+            )
+            if arr._mask.any():
+                values[arr._mask] = pd.NA
+            return pd.Series(values, index=series.index, name=series.name)
+
+        def __init__(self, series: pd.Series) -> None:
+            pass
+
+    _SortedLenAccessor.__name__ = f"{accessor_name.capitalize()}Accessor"
+    _SortedLenAccessor.__qualname__ = f"{accessor_name.capitalize()}Accessor"
+    return _SortedLenAccessor
+
+
+LongestSuitAccessor = _make_sorted_length_accessor("longest_suit", 0)
+SecondSuitAccessor  = _make_sorted_length_accessor("second_suit",  1)
+ShortestSuitAccessor = _make_sorted_length_accessor("shortest_suit", 3)
+
+
+# ---------------------------------------------------------------------------
 # Exact suit holding accessor  (series.suits("Kx") etc.)
 # ---------------------------------------------------------------------------
 
@@ -956,6 +1121,53 @@ class QuickTricksAccessor:
         if arr._mask.any():
             values[arr._mask] = pd.NA
         return pd.Series(values, index=series.index, name=series.name)
+
+    def __init__(self, series: pd.Series) -> None:
+        pass
+
+
+# ---------------------------------------------------------------------------
+# Good-suit accessor
+# ---------------------------------------------------------------------------
+
+@pd.api.extensions.register_series_accessor("good_suit")
+class _GoodSuitAccessor:
+    def __new__(cls, series: pd.Series):
+        arr = series.array
+        if not isinstance(arr, BridgeHandArray):
+            raise AttributeError("good_suit is only valid for BridgeHand series")
+
+        def _good_suit(spec: str, suit: str) -> pd.Series:
+            patterns = [p.strip().upper() for p in spec.split(",") if p.strip()]
+            offset = _SUIT_OFFSET[suit.upper()]
+            result = _good_suit_array(arr._data, patterns, offset)
+            values = pd.array(result, dtype=pd.BooleanDtype())
+            if arr._mask.any():
+                values[arr._mask] = pd.NA
+            return pd.Series(values, index=series.index, name=series.name)
+
+        return _good_suit
+
+    def __init__(self, series: pd.Series) -> None:
+        pass
+
+
+@pd.api.extensions.register_series_accessor("match_shape")
+class _MatchShapeAccessor:
+    def __new__(cls, series: pd.Series):
+        arr = series.array
+        if not isinstance(arr, BridgeHandArray):
+            raise AttributeError("match_shape is only valid for BridgeHand series")
+
+        def _match_shape(spec: str) -> pd.Series:
+            patterns = parse_shape_spec(spec)
+            result = _match_shape_array(arr._data, patterns)
+            values = pd.array(result, dtype=pd.BooleanDtype())
+            if arr._mask.any():
+                values[arr._mask] = pd.NA
+            return pd.Series(values, index=series.index, name=series.name)
+
+        return _match_shape
 
     def __init__(self, series: pd.Series) -> None:
         pass

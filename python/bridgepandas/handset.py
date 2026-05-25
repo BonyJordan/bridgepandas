@@ -25,13 +25,13 @@ import functools
 import itertools
 import operator
 import random
-import re
 
 import numpy as np
 import pandas as pd
 
 from .jbdd import BDD
-from .hand import BridgeHandArray, _SUIT_OFFSET, _RANK_INDEX
+from .hand import BridgeHandArray, _SUIT_OFFSET, _RANK_INDEX, _parse_count_spec
+from .shape import parse_shape_spec, _tuple_to_pattern
 
 # ---------------------------------------------------------------------------
 # Card type (suit in SHDC, rank in AKQJT98765432)
@@ -390,12 +390,6 @@ class DealSetConverter:
         return tier[(N, N, N, N)]
 
 
-def _tuple_to_pattern(tupe, n):
-    s = [-1] + list(tupe) + [n + len(tupe)]
-    out = tuple(s[i+1] - s[i] - 1 for i in range(len(tupe) + 1))
-    assert min(out) >= 0
-    return out
-
 
 # ---------------------------------------------------------------------------
 # Shape parsing
@@ -412,8 +406,6 @@ class _IncrTuple(tuple):
 
 
 class ShapeMaker:
-    _RE = re.compile(r'(?P<SKIP>\s+)|(?P<ANY>any)|(?P<OP>[-+])|(?P<PAT>[0-9x]{4})|(?P<ERROR>.)')
-    _ALL = [_tuple_to_pattern(t, 13) for t in itertools.combinations(range(16), 3)]
     _BDDS: dict | None = None
 
     @staticmethod
@@ -439,55 +431,10 @@ class ShapeMaker:
         return ShapeMaker._BDDS
 
     @staticmethod
-    def _matching(spec):
-        assert len(spec) == 4
-        return [t for t in ShapeMaker._ALL
-                if all(spec[i] in ('x', str(t[i])) for i in range(4))]
-
-    class _ExBase:
-        def do_end(self): raise ValueError("Unexpected end")
-        def do_skip(self, mo, sf): return self
-        def do_any(self, mo, sf): raise ValueError(f"'any' unexpected at {mo.start()+1}")
-        def do_op(self, mo, sf): raise ValueError(f"operator unexpected at {mo.start()+1}")
-        def do_pat(self, mo, sf): raise ValueError(f"pattern unexpected at {mo.start()+1}")
-
-    class _ExAnyOrPat(_ExBase):
-        def __init__(self, sign): self.sign = sign
-        def do_any(self, mo, sf): return ShapeMaker._ExPat(self.sign)
-        def do_pat(self, mo, sf):
-            (sf.update if self.sign == '+' else sf.difference_update)(ShapeMaker._matching(mo.group()))
-            return ShapeMaker._ExOp()
-
-    class _ExPat(_ExBase):
-        def __init__(self, sign): self.sign = sign
-        def do_pat(self, mo, sf):
-            tupes = set()
-            for perm in set(itertools.permutations(mo.group())):
-                tupes.update(ShapeMaker._matching(perm))
-            (sf.update if self.sign == '+' else sf.difference_update)(tupes)
-            return ShapeMaker._ExOp()
-
-    class _ExOp(_ExBase):
-        def do_end(self): pass
-        def do_op(self, mo, sf): return ShapeMaker._ExAnyOrPat(mo.group())
-
-    @staticmethod
     def get_handset(spec: str) -> HandSet:
-        state = ShapeMaker._ExAnyOrPat("+")
-        so_far: set = set()
-        for mo in ShapeMaker._RE.finditer(spec):
-            grp = mo.lastgroup
-            if grp == "SKIP":     continue
-            elif grp == "ANY":    state = state.do_any(mo, so_far)
-            elif grp == "OP":     state = state.do_op(mo, so_far)
-            elif grp == "PAT":    state = state.do_pat(mo, so_far)
-            else: raise ValueError(f"Unexpected character `{mo.group()}' at pos {mo.start()+1}")
-        state.do_end()
-
         m = hand_makers
-        bdds = ShapeMaker._pattern_bdds()
         out = HandSet(BDD.false())
-        for pat in so_far:
+        for pat in parse_shape_spec(spec):
             pat_bdd = functools.reduce(
                 HandSet.__and__,
                 [(m.NUM_SP == pat[0]), (m.NUM_HE == pat[1]),
@@ -506,6 +453,16 @@ class OrderedLengthMetric(HandSetMetric):
         values: dict[int, BDD] = {}
         for pat, bdd in ShapeMaker._pattern_bdds().items():
             x = sorted(pat)[place]
+            values[x] = values[x] | bdd if x in values else bdd
+        super().__init__(values)
+
+
+class SuitLengthCountMetric(HandSetMetric):
+    """Counts the number of suits with exactly *target_length* cards."""
+    def __init__(self, target_length: int):
+        values: dict[int, BDD] = {}
+        for pat, bdd in ShapeMaker._pattern_bdds().items():
+            x = sum(1 for length in pat if length == target_length)
             values[x] = values[x] | bdd if x in values else bdd
         super().__init__(values)
 
@@ -529,6 +486,16 @@ class lazy_const:
 # ---------------------------------------------------------------------------
 # hand_makers
 # ---------------------------------------------------------------------------
+
+def _count_spec_to_card_dict(spec: str) -> dict:
+    mask = _parse_count_spec(spec)
+    return {
+        Card(suit, rank): 1
+        for suit, offset in _SUIT_OFFSET.items()
+        for rank, idx in _RANK_INDEX.items()
+        if mask & (1 << (offset + idx))
+    }
+
 
 class hand_makers:
     """
@@ -558,7 +525,7 @@ class hand_makers:
     # Honor-based metrics
     HCP      = lazy_const(lambda: SimpleHandMetric(
         {Card(s, r): v for s in "SHDC" for r, v in [("A",4),("K",3),("Q",2),("J",1)]}))
-    RP       = lazy_const(lambda: SimpleHandMetric(
+    AKQ_POINTS = lazy_const(lambda: SimpleHandMetric(
         {Card(s, r): v for s in "SHDC" for r, v in [("A",3),("K",2),("Q",1)]}))
     CONTROLS = lazy_const(lambda: SimpleHandMetric(
         {Card(s, r): v for s in "SHDC" for r, v in [("A",2),("K",1)]}))
@@ -572,14 +539,24 @@ class hand_makers:
     TOP4   = lazy_const(lambda: SimpleHandMetric({Card(s,r): 1 for s in "SHDC" for r in "AKQJ"}))
     TOP5   = lazy_const(lambda: SimpleHandMetric({Card(s,r): 1 for s in "SHDC" for r in "AKQJT"}))
 
-    QUICKx2 = lazy_const(lambda: QuickTricksMetric())
+    QUICK_TRICKS_X2 = lazy_const(lambda: QuickTricksMetric())
 
     # Ordered shape
-    LONGEST        = lazy_const(lambda: OrderedLengthMetric(3))
-    SECOND_LONGEST = lazy_const(lambda: OrderedLengthMetric(2))
-    SHORTEST       = lazy_const(lambda: OrderedLengthMetric(0))
+    LONGEST_SUIT        = lazy_const(lambda: OrderedLengthMetric(3))
+    SECOND_SUIT         = lazy_const(lambda: OrderedLengthMetric(2))
+    SHORTEST_SUIT       = lazy_const(lambda: OrderedLengthMetric(0))
 
-    ANY = lazy_const(lambda: HandSet(BDD.true()))
+    # Suit-count shape
+    VOIDS      = lazy_const(lambda: SuitLengthCountMetric(0))
+    SINGLETONS = lazy_const(lambda: SuitLengthCountMetric(1))
+    DOUBLETONS = lazy_const(lambda: SuitLengthCountMetric(2))
+
+    ALL_HANDS = lazy_const(lambda: HandSet(BDD.true()))
+
+    @staticmethod
+    def ANY(suit: str) -> HandSet:
+        """HandSet where the hand holds at least one card in *suit* ('S', 'H', 'D', or 'C')."""
+        return hand_makers.NUM(suit) >= 1
 
     # Direction converters
     WEST  = DealSetConverter("W")
@@ -588,19 +565,24 @@ class hand_makers:
     SOUTH = DealSetConverter("S")
 
     @staticmethod
-    def CARD(card) -> HandSet:
+    def NUM(spec: str) -> SimpleHandMetric:
+        """Count of cards matching *spec* — same syntax as Hand.num().
+
+        Suits (SHDC) then ranks (AKQJT2-9), comma-separated tokens.
+        Examples: ``h.NUM("A")`` counts aces; ``h.NUM("HDK")`` counts red kings;
+        ``h.NUM("A,SK")`` counts aces plus the king of spades.
+        """
+        return SimpleHandMetric(_count_spec_to_card_dict(spec))
+
+    @staticmethod
+    def HAS(card) -> HandSet:
         """HandSet for holding a specific card.  card can be a Card or 'SK' string."""
         if isinstance(card, str):
             card = Card(card[0], card[1])
         return HandSet(BDD(_BDD_VAR[card]))
 
     @staticmethod
-    def IN_SUIT(suit: str) -> SimpleHandMetric:
-        return {"S": hand_makers.NUM_SP, "H": hand_makers.NUM_HE,
-                "D": hand_makers.NUM_DI, "C": hand_makers.NUM_CL}[suit]
-
-    @staticmethod
-    def SHAPE(spec: str) -> HandSet:
+    def MATCH_SHAPE(spec: str) -> HandSet:
         """
         Shape constraint string.  Examples:
           "4432"           – exactly 4S 4H 3D 2C
@@ -612,15 +594,18 @@ class hand_makers:
         return ShapeMaker.get_handset(spec)
 
     @staticmethod
-    def AT_LEAST(suit: str, spec) -> HandSet:
+    def GOOD_SUIT(spec: str, suit: str) -> HandSet:
         """
-        AT_LEAST("S", "Kx")  – spade suit headed by K with at least one other card.
-        spec may be a string or list of strings (OR'd together).
+        Return the HandSet where *suit* satisfies at least one pattern in the
+        comma-separated *spec* — same semantics as ``Hand.good_suit(spec, suit)``.
+
+        Example: ``h.GOOD_SUIT("AJx,KQx", "H")`` – hearts headed by AJ+ or KQ+.
         """
-        rank_key = {k: i for i, k in enumerate("AKQJT98765432x")}
+        rank_key = {k: i for i, k in enumerate("AKQJT98765432X")}
         suit_vars = [(v, c) for v, c in enumerate(_BDD_CARDS) if c.suit == suit]
 
         def one(s):
+            s = s.strip().upper()
             spec_sorted = sorted(s, key=rank_key.__getitem__)
             states = [BDD.false()] * len(spec_sorted) + [BDD.true()]
             for var, card in reversed(suit_vars):
@@ -631,9 +616,8 @@ class hand_makers:
                 states = new
             return HandSet(states[0])
 
-        if isinstance(spec, str):
-            return one(spec)
-        return functools.reduce(HandSet.__or__, [one(x) for x in spec])
+        patterns = [p for p in spec.split(",") if p.strip()]
+        return functools.reduce(HandSet.__or__, [one(p) for p in patterns])
 
 
 h = hand_makers
