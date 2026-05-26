@@ -41,7 +41,7 @@ def score_ns(declared_contract: str|DeclaredContract, declarer_tricks: int,
              table_vulnerable: str|TableVuln) -> int:
     dc = DeclaredContract(declared_contract)
     vul = TableVuln(table_vulnerable)
-    dec_score = score(dc, tricks, vul.is_vul(dc.declarer))
+    dec_score = score(dc, declarer_tricks, vul.is_vul(dc.declarer))
     if dc.declarer.is_ew():
         return -dec_score
     else:
