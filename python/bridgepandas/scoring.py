@@ -1,4 +1,4 @@
-import bisect
+import numpy as np
 
 from .auction import Contract, DeclaredContract
 from .direction import Direction, TableVuln
@@ -16,25 +16,34 @@ def is_declarer_vulnerable(declarer, table_vuln) -> bool:
     return v.ns_vul() if d.is_ns() else v.ew_vul()
 
 
-def scorediff_imps(diff: int) -> int:
-    """Convert (my_score - their_score) to IMPs."""
-    imps_table = [
-        15, 45, 85, 125, 165, 215, 265, 315, 365,
-        425, 495, 595, 745, 895, 1095, 1295, 1495, 1745, 1995,
-        2245, 2495, 2995, 3495, 3995,
-    ]
-    if diff < 0:
-        return -bisect.bisect_left(imps_table, -diff)
-    return bisect.bisect_left(imps_table, diff)
+_IMPS_TABLE = np.array([
+    15, 45, 85, 125, 165, 215, 265, 315, 365,
+    425, 495, 595, 745, 895, 1095, 1295, 1495, 1745, 1995,
+    2245, 2495, 2995, 3495, 3995,
+])
 
 
-def scorediff_matchpoints(diff: int) -> float:
-    """Convert (my_score - their_score) to matchpoints on a 0/0.5/1 scale."""
-    if diff < 0:
-        return 0.0
-    if diff > 0:
-        return 1.0
-    return 0.5
+def scorediff_imps(diff):
+    """Convert (my_score - their_score) to IMPs.
+
+    *diff* may be a scalar int or a pandas Series/array of ints, in which
+    case the result has the same shape (e.g. ``(df['score_a'] -
+    df['score_b']).map(...)`` works, but so does plain subtraction:
+    ``scorediff_imps(df['score_a'] - df['score_b'])``).
+    """
+    magnitude = np.searchsorted(_IMPS_TABLE, np.abs(diff), side="left")
+    result = np.sign(diff) * magnitude
+    return int(result) if np.ndim(diff) == 0 else result
+
+
+def scorediff_matchpoints(diff):
+    """Convert (my_score - their_score) to matchpoints on a 0/0.5/1 scale.
+
+    *diff* may be a scalar int or a pandas Series/array of ints, in which
+    case the result has the same shape.
+    """
+    result = (np.sign(diff) + 1) / 2
+    return float(result) if np.ndim(diff) == 0 else result
 
 
 def score_ns(declared_contract: str|DeclaredContract, declarer_tricks: int,

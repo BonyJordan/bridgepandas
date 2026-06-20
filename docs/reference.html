@@ -424,8 +424,16 @@ around the table.</div><div class="doc init-doc">Initialize self.  See help(type
 <br>
 <em>declarer</em> is a Direction or W/N/E/S string.<br>
 <em>table_vuln</em> is a TableVuln object or any string accepted by TableVuln() (-, e, n, b, ew, ns, both, …).</div></details>
-<details class="item fn"><summary><code><span class="fn-name">scorediff_imps</span>(diff: int) -&gt; int</code></summary><div class="doc">Convert (my_score - their_score) to IMPs.</div></details>
-<details class="item fn"><summary><code><span class="fn-name">scorediff_matchpoints</span>(diff: int) -&gt; float</code></summary><div class="doc">Convert (my_score - their_score) to matchpoints on a 0/0.5/1 scale.</div></details>
+<details class="item fn"><summary><code><span class="fn-name">scorediff_imps</span>(diff)</code></summary><div class="doc">Convert (my_score - their_score) to IMPs.<br>
+<br>
+<em>diff</em> may be a scalar int or a pandas Series/array of ints, in which<br>
+case the result has the same shape (e.g. ``(df[&#x27;score_a&#x27;] -<br>
+df[&#x27;score_b&#x27;]).map(...)`` works, but so does plain subtraction:<br>
+<code>scorediff_imps(df[&#x27;score_a&#x27;] - df[&#x27;score_b&#x27;])</code>).</div></details>
+<details class="item fn"><summary><code><span class="fn-name">scorediff_matchpoints</span>(diff)</code></summary><div class="doc">Convert (my_score - their_score) to matchpoints on a 0/0.5/1 scale.<br>
+<br>
+<em>diff</em> may be a scalar int or a pandas Series/array of ints, in which<br>
+case the result has the same shape.</div></details>
 <details class="item fn"><summary><code><span class="fn-name">board_number_to_dealer_vuln</span>(num: int)</code></summary><div class="doc">Return the tuple (dealer: Direction, vuln: TableVuln) for a board number (1-based).</div></details>
 <details class="item fn"><summary><code><span class="fn-name">dealer_vuln_to_board_number</span>(dealer, vuln) -&gt; int</code></summary><div class="doc">Return the board number (1-based) for a given dealer and vulnerability.</div></details>
 </div></details>

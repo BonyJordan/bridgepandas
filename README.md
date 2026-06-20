@@ -37,7 +37,7 @@ bp.add_dds_score(df, '3N-S', 'score_3nt', '-')   # neither vulnerable
 bp.add_dds_score(df, '4S-S', 'score_4s',  'ns')  # NS vulnerable
 
 # IMP differential
-df['imps'] = (df['score_3nt'] - df['score_4s']).map(bp.scorediff_imps)
+df['imps'] = bp.scorediff_imps(df['score_3nt'] - df['score_4s'])
 ```
 
 ## Examples
