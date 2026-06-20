@@ -199,8 +199,79 @@ fail_count : int<br>
     A safety valve to protect against impossible constraints;<br>
     after this many consecutive failures before the first success, raise<br>
     <code>ValueError</code>.  <code>None</code> means no limit.</div></details>
-<details class="item fn"><summary><code><span class="fn-name">add_dds_score</span>(df: &#x27;pd.DataFrame&#x27;, contracts=None, col_names=None, vuln=None, *, columns=None, suffix: &#x27;str&#x27; = &#x27;_score&#x27;, processes: &#x27;int&#x27; = 1, progress: &#x27;bool&#x27; = True) -&gt; &#x27;None&#x27;</code></summary></details>
-<details class="item fn"><summary><code><span class="fn-name">add_dds_tricks</span>(df: &#x27;pd.DataFrame&#x27;, contracts=None, col_names=None, *, columns=None, suffix: &#x27;str&#x27; = &#x27;_tricks&#x27;, processes: &#x27;int&#x27; = 1, progress: &#x27;bool&#x27; = True) -&gt; &#x27;None&#x27;</code></summary></details>
+<details class="item fn"><summary><code><span class="fn-name">add_dds_score</span>(df: &#x27;pd.DataFrame&#x27;, contracts=None, col_names=None, vuln=None, *, columns=None, suffix: &#x27;str&#x27; = &#x27;_score&#x27;, processes: &#x27;int&#x27; = 1, progress: &#x27;bool&#x27; = True) -&gt; &#x27;None&#x27;</code></summary><div class="doc">Solve double-dummy and score each deal, adding NS score column(s) to <em>df</em>.<br>
+<br>
+Results are cached in a <code>_dds</code> column (dict per row, keyed by<br>
+declarer+strain e.g. <code>&quot;NH&quot;</code>) so repeated calls for the same<br>
+declarer/strain combination skip the solver entirely.<br>
+<br>
+Parameters<br>
+----------<br>
+df : DataFrame<br>
+    Must have columns &#x27;north&#x27;, &#x27;east&#x27;, &#x27;south&#x27;, &#x27;west&#x27;. Modified in place.<br>
+contracts : str | DeclaredContract | pd.Series, or list thereof<br>
+    One or more contract sources.  A scalar str/DeclaredContract is applied<br>
+    to every row; a pd.Series supplies per-row contracts.  Strings are<br>
+    parsed as DeclaredContract (e.g. <code>&quot;3N-N&quot;</code>, <code>&quot;4Sx-E&quot;</code>).<br>
+    Mutually exclusive with <em>columns</em>.<br>
+col_names : str | list[str], optional<br>
+    Output column name(s).  If omitted the name is derived automatically:<br>
+    contract str/DeclaredContract → <code>str(contract) + suffix</code>,<br>
+    pd.Series with a name → <code>series.name + suffix</code>,<br>
+    column name (via <em>columns</em>) → <code>column_name + suffix</code>.<br>
+    Auto-derived names are sanitized into valid Python identifiers (e.g.<br>
+    <code>&quot;2C-S_score&quot;</code> → <code>&quot;_2C_S_score&quot;</code>) so they can be accessed with<br>
+    attribute syntax, e.g. <code>df._2C_S_score</code>.<br>
+    A nameless pd.Series without an explicit <em>col_names</em> entry raises<br>
+    ValueError.<br>
+columns : str | list[str], optional<br>
+    Column name(s) in <em>df</em> whose values are contracts (str or<br>
+    DeclaredContract).  Each column produces one output column.<br>
+    Mutually exclusive with <em>contracts</em>.<br>
+suffix : str<br>
+    Appended to auto-derived output column names.<br>
+processes : int<br>
+    Number of parallel worker processes.  Default 1 (no parallelism).<br>
+progress : bool<br>
+    Show a progress bar (requires tqdm; silently skipped if not installed).<br>
+vuln : str | TableVuln | pd.Series<br>
+    Vulnerability. A scalar is applied to every row; a Series supplies<br>
+    per-row values.  Required.</div></details>
+<details class="item fn"><summary><code><span class="fn-name">add_dds_tricks</span>(df: &#x27;pd.DataFrame&#x27;, contracts=None, col_names=None, *, columns=None, suffix: &#x27;str&#x27; = &#x27;_tricks&#x27;, processes: &#x27;int&#x27; = 1, progress: &#x27;bool&#x27; = True) -&gt; &#x27;None&#x27;</code></summary><div class="doc">Solve double-dummy and add declarer trick-count column(s) to <em>df</em>.<br>
+<br>
+Results are cached in a <code>_dds</code> column (dict per row, keyed by<br>
+declarer+strain e.g. <code>&quot;NH&quot;</code>) so repeated calls for the same<br>
+declarer/strain combination skip the solver entirely.<br>
+<br>
+Parameters<br>
+----------<br>
+df : DataFrame<br>
+    Must have columns &#x27;north&#x27;, &#x27;east&#x27;, &#x27;south&#x27;, &#x27;west&#x27;. Modified in place.<br>
+contracts : str | DeclaredContract | pd.Series, or list thereof<br>
+    One or more contract sources.  A scalar str/DeclaredContract is applied<br>
+    to every row; a pd.Series supplies per-row contracts.  Strings are<br>
+    parsed as DeclaredContract (e.g. <code>&quot;3N-N&quot;</code>, <code>&quot;4Sx-E&quot;</code>).<br>
+    Mutually exclusive with <em>columns</em>.<br>
+col_names : str | list[str], optional<br>
+    Output column name(s).  If omitted the name is derived automatically:<br>
+    contract str/DeclaredContract → <code>str(contract) + suffix</code>,<br>
+    pd.Series with a name → <code>series.name + suffix</code>,<br>
+    column name (via <em>columns</em>) → <code>column_name + suffix</code>.<br>
+    Auto-derived names are sanitized into valid Python identifiers (e.g.<br>
+    <code>&quot;2C-S_score&quot;</code> → <code>&quot;_2C_S_score&quot;</code>) so they can be accessed with<br>
+    attribute syntax, e.g. <code>df._2C_S_score</code>.<br>
+    A nameless pd.Series without an explicit <em>col_names</em> entry raises<br>
+    ValueError.<br>
+columns : str | list[str], optional<br>
+    Column name(s) in <em>df</em> whose values are contracts (str or<br>
+    DeclaredContract).  Each column produces one output column.<br>
+    Mutually exclusive with <em>contracts</em>.<br>
+suffix : str<br>
+    Appended to auto-derived output column names.<br>
+processes : int<br>
+    Number of parallel worker processes.  Default 1 (no parallelism).<br>
+progress : bool<br>
+    Show a progress bar (requires tqdm; silently skipped if not installed).</div></details>
 </div></details>
 
 <details class="section" open><summary>Hand Sets</summary><div class="section-body"><div class="narrative"><p>All hand constraints are built from <code>h</code>. Hand sets combine with <code>&amp;</code> (and), <code>|</code> (or), <code>~</code> (not). Pass them as constraints to <code>random_deals()</code>.</p><p>Numeric metrics can be added together and multiplied by constants before comparing, so composite rules are expressed naturally.</p><p><strong>Example (1NT Opener):</strong> <code>(h.HCP &gt;= 15) &amp; (h.HCP &lt;= 17) &amp; h.MATCH_SHAPE("any 4333 + any 4432 + any 5332")</code></p><p><strong>Example (rule of 20):</strong> <code>h.HCP + h.LONGEST_SUIT + h.SECOND_SUIT &gt;= 20</code></p><p>A hand set also has three methods of its own: <code>hs.count()</code> returns the exact number of 13-card hands satisfying the constraint (no simulation needed); <code>hs.contains(hand)</code> tests whether a specific hand belongs to the set; <code>hs.sample()</code> returns one random hand from the set as a <code>Hand</code> object.</p><h3 class="metrics-heading">Numeric metrics</h3><p class="metrics-sub">Compare with <code>==</code>, <code>!=</code>, <code>&lt;</code>, <code>&lt;=</code>, <code>&gt;</code>, <code>&gt;=</code> to produce a hand set.</p><table class="metrics"><tr><td><code>h.SPADES, h.HEARTS, h.DIAMONDS, h.CLUBS</code></td><td>Suit length (0–13).</td></tr><tr><td><code>h.HCP</code></td><td>High card points: A=4, K=3, Q=2, J=1.</td></tr><tr><td><code>h.AKQ_POINTS</code></td><td>AKQ points: A=3, K=2, Q=1.</td></tr><tr><td><code>h.CONTROLS</code></td><td>Controls: A=2, K=1.</td></tr><tr><td><code>h.ACES, h.KINGS, h.QUEENS, h.JACKS, h.TENS</code></td><td>Count of that honor held.</td></tr><tr><td><code>h.TOP2 … h.TOP5</code></td><td>Count of top-2 through top-5 honors held across all suits.</td></tr><tr><td><code>h.QUICK_TRICKS_X2</code></td><td>Quick tricks × 2 (integer): AK=4, AQ=3, A=2, KQ=2, Kx=1. Compare as <code>h.QUICK_TRICKS_X2 &gt;= 3</code> for ≥1.5 quick tricks.</td></tr><tr><td><code>h.LOSERS</code></td><td>Losing trick count (0–12): up to 3 losers per suit, reduced by A, K (if length ≥ 2), Q (if length ≥ 3).</td></tr><tr><td><code>h.LONGEST_SUIT, h.SECOND_SUIT, h.SHORTEST_SUIT</code></td><td>Length of the longest / 2nd-longest / shortest suit.</td></tr><tr><td><code>h.VOIDS, h.SINGLETONS, h.DOUBLETONS</code></td><td>Number of suits with exactly 0, 1, or 2 cards.</td></tr><tr><td><code>h.NUM(spec)</code></td><td>Count of cards matching a spec — same syntax as <a href="#Hand.num"><code>Hand.num()</code></a>, e.g. <code>h.NUM("A")</code> counts aces.</td></tr></table><h3 class="metrics-heading">Boolean constraints</h3><p class="metrics-sub">These return a hand set directly — no comparison needed.</p><table class="metrics"><tr><td><code>h.MATCH_SHAPE(spec)</code></td><td>Shape constraint, e.g. <code>"any 5332"</code>, <code>"44xx"</code>, <code>"4432 + 4333"</code>.</td></tr><tr><td><code>h.GOOD_SUIT(spec, suit)</code></td><td>Suit satisfies a holding pattern — same syntax as <a href="#Hand.good_suit"><code>Hand.good_suit()</code></a>, e.g. <code>h.GOOD_SUIT("AJx,KQx", "H")</code>.</td></tr><tr><td><code>h.HAS(card)</code></td><td>Hand contains a specific card, e.g. <code>h.HAS("SA")</code>.</td></tr><tr><td><code>h.ANY(suit)</code></td><td>At least one card held in <em>suit</em>, e.g. <code>h.ANY("S")</code>.</td></tr><tr><td><code>h.ALL_HANDS</code></td><td>Unconstrained — matches every possible hand.</td></tr></table><h3 class="metrics-heading">DealSet converters</h3><p class="metrics-sub">Lift a hand constraint to a full-deal constraint.</p><table class="metrics"><tr><td><code>h.NORTH(hs), h.SOUTH(hs), h.EAST(hs), h.WEST(hs)</code></td><td>Apply a hand constraint to a specific seat to get a deal constraint.</td></tr></table></div></div></details>

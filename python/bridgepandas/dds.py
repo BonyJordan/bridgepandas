@@ -402,6 +402,9 @@ _CONTRACTS_DOC = """\
         contract str/DeclaredContract → ``str(contract) + suffix``,
         pd.Series with a name → ``series.name + suffix``,
         column name (via *columns*) → ``column_name + suffix``.
+        Auto-derived names are sanitized into valid Python identifiers (e.g.
+        ``"2C-S_score"`` → ``"_2C_S_score"``) so they can be accessed with
+        attribute syntax, e.g. ``df._2C_S_score``.
         A nameless pd.Series without an explicit *col_names* entry raises
         ValueError.
     columns : str | list[str], optional
@@ -428,22 +431,6 @@ def add_dds_score(
     processes: int = 1,
     progress: bool = True,
 ) -> None:
-    """
-    Solve double-dummy and score each deal, adding NS score column(s) to *df*.
-
-    Results are cached in a ``_dds`` column (dict per row, keyed by
-    declarer+strain e.g. ``"NH"``) so repeated calls for the same
-    declarer/strain combination skip the solver entirely.
-
-    Parameters
-    ----------
-    df : DataFrame
-        Must have columns 'north', 'east', 'south', 'west'. Modified in place.
-""" + _CONTRACTS_DOC + """
-    vuln : str | TableVuln | pd.Series
-        Vulnerability. A scalar is applied to every row; a Series supplies
-        per-row values.  Required.
-    """
     from .scoring import score_ns
 
     if vuln is None:
@@ -463,6 +450,24 @@ def add_dds_score(
         df[out_col] = scores
 
 
+add_dds_score.__doc__ = """
+    Solve double-dummy and score each deal, adding NS score column(s) to *df*.
+
+    Results are cached in a ``_dds`` column (dict per row, keyed by
+    declarer+strain e.g. ``"NH"``) so repeated calls for the same
+    declarer/strain combination skip the solver entirely.
+
+    Parameters
+    ----------
+    df : DataFrame
+        Must have columns 'north', 'east', 'south', 'west'. Modified in place.
+""" + _CONTRACTS_DOC + """
+    vuln : str | TableVuln | pd.Series
+        Vulnerability. A scalar is applied to every row; a Series supplies
+        per-row values.  Required.
+    """
+
+
 def add_dds_tricks(
     df: pd.DataFrame,
     contracts=None,
@@ -473,7 +478,16 @@ def add_dds_tricks(
     processes: int = 1,
     progress: bool = True,
 ) -> None:
-    """
+    n = len(df)
+    sources, out_names = _normalize_dds_inputs(df, contracts, col_names, columns, suffix)
+    cache = _solve_into_cache(df, sources, progress, processes)
+
+    for (dc_list, _), out_col in zip(sources, out_names):
+        keys = [_dds_key(dc) for dc in dc_list]
+        df[out_col] = [cache.iat[i][keys[i]] for i in range(n)]
+
+
+add_dds_tricks.__doc__ = """
     Solve double-dummy and add declarer trick-count column(s) to *df*.
 
     Results are cached in a ``_dds`` column (dict per row, keyed by
@@ -486,10 +500,3 @@ def add_dds_tricks(
         Must have columns 'north', 'east', 'south', 'west'. Modified in place.
 """ + _CONTRACTS_DOC + """
     """
-    n = len(df)
-    sources, out_names = _normalize_dds_inputs(df, contracts, col_names, columns, suffix)
-    cache = _solve_into_cache(df, sources, progress, processes)
-
-    for (dc_list, _), out_col in zip(sources, out_names):
-        keys = [_dds_key(dc) for dc in dc_list]
-        df[out_col] = [cache.iat[i][keys[i]] for i in range(n)]
