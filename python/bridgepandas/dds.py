@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import ctypes
 import importlib.util
+import re
 
 import numpy as np
 import pandas as pd
@@ -285,6 +286,18 @@ def _dds_key(dc) -> str:
     return str(dc.declarer) + dc.strain
 
 
+def _to_identifier(name: str) -> str:
+    """Sanitize an auto-derived column name into a valid Python identifier.
+
+    Lets names like "2C-S_score" be accessed as df._2C_S_score (attribute
+    access requires a valid identifier, which can't start with a digit).
+    """
+    ident = re.sub(r"\W", "_", name)
+    if ident[:1].isdigit():
+        ident = "_" + ident
+    return ident
+
+
 def _normalize_dds_inputs(df, contracts, col_names, columns, suffix):
     """Return (sources, out_names) where sources = list of (dc_list, auto_name)."""
     from .auction import DeclaredContract
@@ -298,7 +311,7 @@ def _normalize_dds_inputs(df, contracts, col_names, columns, suffix):
     if columns is not None:
         col_list = [columns] if isinstance(columns, str) else list(columns)
         for col in col_list:
-            sources.append(([DeclaredContract(c) for c in df[col]], col + suffix))
+            sources.append(([DeclaredContract(c) for c in df[col]], _to_identifier(col + suffix)))
     else:
         if contracts is None:
             raise ValueError("Must specify contracts or columns")
@@ -306,11 +319,11 @@ def _normalize_dds_inputs(df, contracts, col_names, columns, suffix):
         for c in items:
             if isinstance(c, pd.Series):
                 dc_list = [DeclaredContract(x) for x in c]
-                auto_name = (str(c.name) + suffix) if c.name is not None else None
+                auto_name = _to_identifier(str(c.name) + suffix) if c.name is not None else None
             else:
                 dc = DeclaredContract(c)
                 dc_list = [dc] * n
-                auto_name = str(dc) + suffix
+                auto_name = _to_identifier(str(dc) + suffix)
             sources.append((dc_list, auto_name))
 
     if col_names is not None:
