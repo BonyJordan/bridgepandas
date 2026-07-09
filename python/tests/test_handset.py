@@ -104,30 +104,30 @@ class TestHandSet:
 class TestShape:
     def test_4333_count(self):
         # C(52,13) total hands; 4333 is a specific shape
-        s4333 = m.SHAPE("4333")
+        s4333 = m.MATCH_SHAPE("4333")
         assert s4333.count() > 0
         # Any permutation should be 4x the specific shape
-        assert m.SHAPE("any 4333").count() == 4 * s4333.count()
+        assert m.MATCH_SHAPE("any 4333").count() == 4 * s4333.count()
 
     def test_4432_any(self):
-        specific = m.SHAPE("4432")
-        any_4432 = m.SHAPE("any 4432")
+        specific = m.MATCH_SHAPE("4432")
+        any_4432 = m.MATCH_SHAPE("any 4432")
         # 4432 has 4!/(2!*1!*1!) = 12 distinct permutations
         assert any_4432.count() == 12 * specific.count()
 
     def test_addition(self):
-        a = m.SHAPE("4333")
-        b = m.SHAPE("any 4432")
-        combined = m.SHAPE("4333 + any 4432")
+        a = m.MATCH_SHAPE("4333")
+        b = m.MATCH_SHAPE("any 4432")
+        combined = m.MATCH_SHAPE("4333 + any 4432")
         assert combined.count() == a.count() + b.count()
 
     def test_subtraction(self):
-        any_44xx = m.SHAPE("any 44xx")
-        no_4450  = m.SHAPE("any 44xx - 4450 - 0445 - 5044 - 4504")
+        any_44xx = m.MATCH_SHAPE("any 44xx")
+        no_4450  = m.MATCH_SHAPE("any 44xx - 4450 - 0445 - 5044 - 4504")
         assert no_4450.count() < any_44xx.count()
 
     def test_shape_sample_satisfies(self):
-        shape = m.SHAPE("any 5332")
+        shape = m.MATCH_SHAPE("any 5332")
         for _ in range(5):
             hand = shape.sample()
             lengths = sorted([
@@ -145,7 +145,7 @@ class TestShape:
 
 class TestDealSet:
     def _north_1nt(self):
-        bal = m.SHAPE("any 4333 + any 5332 + any 4432")
+        bal = m.MATCH_SHAPE("any 4333 + any 5332 + any 4432")
         return m.NORTH((m.HCP >= 15) & (m.HCP <= 17) & bal)
 
     def test_count_is_large(self):
@@ -166,7 +166,7 @@ class TestDealSet:
             assert str(df[col].dtype) == "BridgeHand"
 
     def test_sample_df_north_satisfies_constraint(self):
-        bal = m.SHAPE("any 4333 + any 5332 + any 4432")
+        bal = m.MATCH_SHAPE("any 4333 + any 5332 + any 4432")
         nt_constraint = (m.HCP >= 15) & (m.HCP <= 17) & bal
         ds = m.NORTH(nt_constraint)
         df = ds.sample_df(10, seed=2)
@@ -186,7 +186,7 @@ class TestDealSet:
         assert ds.contains(deal["west"], deal["north"], deal["east"], deal["south"])
 
     def test_set_operations(self):
-        bal = m.SHAPE("any 4333 + any 5332 + any 4432")
+        bal = m.MATCH_SHAPE("any 4333 + any 5332 + any 4432")
         n15 = m.NORTH((m.HCP >= 15) & (m.HCP <= 17) & bal)
         n12 = m.NORTH((m.HCP >= 12) & (m.HCP <= 14) & bal)
         union = n15 | n12
