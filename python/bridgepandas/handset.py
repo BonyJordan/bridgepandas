@@ -30,7 +30,7 @@ import numpy as np
 import pandas as pd
 
 from .jbdd import BDD
-from .hand import BridgeHandArray, _SUIT_OFFSET, _RANK_INDEX, _parse_count_spec
+from .hand import Hand, BridgeHandArray, _SUIT_OFFSET, _RANK_INDEX, _parse_count_spec
 from .shape import parse_shape_spec, _tuple_to_pattern
 
 # ---------------------------------------------------------------------------
@@ -268,10 +268,10 @@ class HandSet:
         ones = {v for v, c in enumerate(_BDD_CARDS) if hand_int & (1 << _card_bit(c))}
         return bool(self.bdd.eval_pset(ones))
 
-    def sample(self, rng=random) -> int:
-        """Return a random hand as an int64."""
+    def sample(self, rng=random) -> "Hand":
+        """Return a random hand."""
         idx = rng.randrange(self.bdd.pcount())
-        return _hand_vars_to_int64(self.bdd.get_pindex(idx))
+        return Hand(_hand_vars_to_int64(self.bdd.get_pindex(idx)))
 
 
 # ---------------------------------------------------------------------------
@@ -302,11 +302,12 @@ class DealSet:
         """Return True if the given deal (four int64 hands) is in this DealSet."""
         return bool(self.d.eval_pset(_int64s_to_deal_vars(west, north, east, south)))
 
-    def sample(self, rng=random) -> dict[str, int]:
-        """Return one random deal as {west, north, east, south} int64 dict."""
+    def sample(self, rng=random) -> "Deal":
+        """Return one random deal."""
+        from .deal import Deal
         idx = rng.randrange(self.d.pcount())
         w, n, e, s = _deal_vars_to_int64s(self.d.get_pindex(idx))
-        return {"west": w, "north": n, "east": e, "south": s}
+        return Deal(Hand(w), Hand(n), Hand(e), Hand(s))
 
     def sample_df(self, n: int, seed=None) -> pd.DataFrame:
         """Return n random deals as a DataFrame with BridgeHandArray columns."""
