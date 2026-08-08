@@ -419,11 +419,23 @@ around the table.</div><div class="doc init-doc">Initialize self.  See help(type
 <br>
 <em>contract</em> is a Contract, DeclaredContract, Bid, or string like &quot;3Nx&quot;.<br>
 <em>tricks</em> is the total tricks taken (0–13).<br>
-<em>is_vulnerable</em> is a bool.</div></details>
+<em>is_vulnerable</em> is a bool.<br>
+<br>
+Any of <em>contract</em>, <em>tricks</em>, or <em>is_vulnerable</em> may instead be a pandas<br>
+Series (or, for <em>tricks</em>/<em>is_vulnerable</em>, any array-like) — the result<br>
+then has the same shape (e.g. ``score(df[&#x27;contract&#x27;], df[&#x27;tricks&#x27;],<br>
+df[&#x27;is_vul&#x27;])`` works, and so does mixing a scalar <em>contract</em> with a<br>
+Series <em>tricks</em>). The Index of the result is taken from the first of<br>
+<em>contract</em>, <em>tricks</em>, <em>is_vulnerable</em> (in that order) that is a pandas<br>
+Series.</div></details>
 <details class="item fn"><summary><code><span class="fn-name">is_declarer_vulnerable</span>(declarer, table_vuln) -&gt; bool</code></summary><div class="doc">Return whether <em>declarer</em> is vulnerable.<br>
 <br>
 <em>declarer</em> is a Direction or W/N/E/S string.<br>
-<em>table_vuln</em> is a TableVuln object or any string accepted by TableVuln() (-, e, n, b, ew, ns, both, …).</div></details>
+<em>table_vuln</em> is a TableVuln object or any string accepted by TableVuln() (-, e, n, b, ew, ns, both, …).<br>
+<br>
+Either argument may instead be a pandas Series, in which case the result<br>
+is a pandas Series of bool with the same length (the Index is taken from<br>
+<em>declarer</em> if it is a Series, else from <em>table_vuln</em>).</div></details>
 <details class="item fn"><summary><code><span class="fn-name">scorediff_imps</span>(diff)</code></summary><div class="doc">Convert (my_score - their_score) to IMPs.<br>
 <br>
 <em>diff</em> may be a scalar int or a pandas Series/array of ints, in which<br>
@@ -434,8 +446,16 @@ df[&#x27;score_b&#x27;]).map(...)`` works, but so does plain subtraction:<br>
 <br>
 <em>diff</em> may be a scalar int or a pandas Series/array of ints, in which<br>
 case the result has the same shape.</div></details>
-<details class="item fn"><summary><code><span class="fn-name">board_number_to_dealer_vuln</span>(num: int)</code></summary><div class="doc">Return the tuple (dealer: Direction, vuln: TableVuln) for a board number (1-based).</div></details>
-<details class="item fn"><summary><code><span class="fn-name">dealer_vuln_to_board_number</span>(dealer, vuln) -&gt; int</code></summary><div class="doc">Return the board number (1-based) for a given dealer and vulnerability.</div></details>
+<details class="item fn"><summary><code><span class="fn-name">board_number_to_dealer_vuln</span>(num)</code></summary><div class="doc">Return the tuple (dealer: Direction, vuln: TableVuln) for a board number (1-based).<br>
+<br>
+<em>num</em> may instead be a pandas Series of board numbers, in which case the<br>
+result is a tuple of two pandas Series (dealer, vuln) of the same length,<br>
+preserving <em>num</em>&#x27;s Index.</div></details>
+<details class="item fn"><summary><code><span class="fn-name">dealer_vuln_to_board_number</span>(dealer, vuln) -&gt; int</code></summary><div class="doc">Return the board number (1-based) for a given dealer and vulnerability.<br>
+<br>
+Either <em>dealer</em> or <em>vuln</em> may instead be a pandas Series, in which case<br>
+the result is a pandas Series of int with the same length (the Index is<br>
+taken from <em>dealer</em> if it is a Series, else from <em>vuln</em>).</div></details>
 </div></details>
 
   <script>

@@ -1,3 +1,7 @@
+import numpy as np
+import pandas as pd
+
+
 class Direction:
     """ A direction around the bridge table. You can initialize from a
     ``str``, one of W,N,E,S, or an ``int`` (west=0), or use the built in
@@ -130,20 +134,85 @@ class TableVuln:
         return [TableVuln(i) for i in range(4)]
 
 
-def board_number_to_dealer_vuln(num: int):
-    """Return the tuple (dealer: Direction, vuln: TableVuln) for a board number (1-based)."""
-    n = (num + 15) % 16
+def _factorize_attrs(values, ctor, **extractors):
+    """
+    Construct ``ctor(v)`` once per distinct value in *values*, pull one or
+    more plain-Python attributes out of each unique object via *extractors*
+    (name -> callable(obj) -> value), and broadcast the results back out to
+    arrays aligned with *values*.
+
+    This lets Series-taking functions reuse a class's own scalar
+    parsing/construction logic (``Direction(...)``, ``TableVuln(...)``,
+    ``Contract(...)``) as the single source of truth, while only doing the
+    (possibly regex-based) construction once per unique value rather than
+    once per row.
+
+    Returns a dict *name -> np.ndarray*, one entry per keyword in
+    *extractors*, each the same length as *values*.
+    """
+    codes, uniques = pd.factorize(values)
+    objs = [ctor(u) for u in uniques]
+    return {
+        name: np.array([fn(o) for o in objs])[codes]
+        for name, fn in extractors.items()
+    }
+
+
+def board_number_to_dealer_vuln(num):
+    """Return the tuple (dealer: Direction, vuln: TableVuln) for a board number (1-based).
+
+    *num* may instead be a pandas Series of board numbers, in which case the
+    result is a tuple of two pandas Series (dealer, vuln) of the same length,
+    preserving *num*'s Index.
+    """
+    if not isinstance(num, pd.Series):
+        n = (num + 15) % 16
+        d = n % 4
+        v = (d + (n // 4)) % 4
+        return Direction.NORTH + d, TableVuln("-neb"[v])
+
+    n = (num.to_numpy() + 15) % 16
     d = n % 4
     v = (d + (n // 4)) % 4
-    return Direction.NORTH + d, TableVuln("-neb"[v])
+
+    dealers = np.array([Direction.NORTH + i for i in range(4)], dtype=object)
+    vulns = np.array([TableVuln(i) for i in range(4)], dtype=object)
+
+    return (pd.Series(dealers[d], index=num.index),
+            pd.Series(vulns[v], index=num.index))
 
 
 def dealer_vuln_to_board_number(dealer, vuln) -> int:
-    """Return the board number (1-based) for a given dealer and vulnerability."""
-    dix = (Direction(dealer).i - Direction.NORTH.i) & 3
-    vix = TableVuln(vuln).data
+    """Return the board number (1-based) for a given dealer and vulnerability.
+
+    Either *dealer* or *vuln* may instead be a pandas Series, in which case
+    the result is a pandas Series of int with the same length (the Index is
+    taken from *dealer* if it is a Series, else from *vuln*).
+    """
+    dealer_is_series = isinstance(dealer, pd.Series)
+    vuln_is_series = isinstance(vuln, pd.Series)
+
+    if not dealer_is_series and not vuln_is_series:
+        dix = (Direction(dealer).i - Direction.NORTH.i) & 3
+        vix = TableVuln(vuln).data
+        delta = (vix + 4 - dix) % 4
+        return 1 + delta * 4 + dix
+
+    if dealer_is_series:
+        dix = (_factorize_attrs(dealer, Direction, i=lambda d: d.i)["i"] - Direction.NORTH.i) & 3
+    else:
+        dix = (Direction(dealer).i - Direction.NORTH.i) & 3
+
+    if vuln_is_series:
+        vix = _factorize_attrs(vuln, TableVuln, data=lambda v: v.data)["data"]
+    else:
+        vix = TableVuln(vuln).data
+
     delta = (vix + 4 - dix) % 4
-    return 1 + delta * 4 + dix
+    result = 1 + delta * 4 + dix
+
+    index = dealer.index if dealer_is_series else vuln.index
+    return pd.Series(result, index=index)
 
 
 __all__ = [
