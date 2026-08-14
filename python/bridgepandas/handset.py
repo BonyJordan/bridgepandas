@@ -30,7 +30,7 @@ import numpy as np
 import pandas as pd
 
 from .jbdd import BDD
-from .hand import Hand, BridgeHandArray, _SUIT_OFFSET, _RANK_INDEX, _parse_count_spec
+from .hand import Hand, BridgeHandArray, _SUIT_OFFSET, _RANK_INDEX, _parse_count_spec, hand_str_to_int
 from .shape import parse_shape_spec, _tuple_to_pattern
 
 # ---------------------------------------------------------------------------
@@ -258,6 +258,14 @@ class HandSet:
     def ite(self, t: HandSet, e: HandSet) -> HandSet:
         return HandSet(self.bdd.thenelse(t.bdd, e.bdd))
 
+    def __eq__(self, other) -> bool:
+        if not isinstance(other, HandSet):
+            return NotImplemented
+        return self.bdd == other.bdd
+
+    def __hash__(self) -> int:
+        return hash(self.bdd)
+
     # --- query ---
 
     def count(self) -> int:
@@ -272,6 +280,35 @@ class HandSet:
         """Return a random hand."""
         idx = rng.randrange(self.bdd.pcount())
         return Hand(_hand_vars_to_int64(self.bdd.get_pindex(idx)))
+
+    # --- construction ---
+
+    @classmethod
+    def from_hand(cls, spec) -> "HandSet":
+        """
+        HandSet matching a specific hand.
+
+        *spec* may be a ``Hand``, a hand string (S/H/D/C, e.g.
+        ``"AJT74/Q97/532/52"``), or a raw int64 card bitmask.  Fewer than 13
+        cards may be given (missing suits as ``"-"`` in a string, or simply
+        fewer bits set) — the result then matches every 13-card hand that
+        contains the given cards as a subset.
+        """
+        if isinstance(spec, str):
+            mask = hand_str_to_int(spec)
+        elif isinstance(spec, int):
+            mask = int(spec)
+        else:
+            raise TypeError(f"Unsupported spec type {type(spec).__name__!r}; use Hand, str, or int")
+        if mask.bit_length() > 52:
+            raise ValueError(f"Hand spec has cards outside the 52-card deck: {spec!r}")
+        if mask.bit_count() > 13:
+            raise ValueError(f"Hand spec has more than 13 cards: {spec!r}")
+        bdd = BDD.true()
+        for var, card in enumerate(_BDD_CARDS):
+            if mask & (1 << _card_bit(card)):
+                bdd &= BDD(var)
+        return cls(bdd)
 
 
 # ---------------------------------------------------------------------------
@@ -292,6 +329,14 @@ class DealSet:
     def __invert__(self)               -> DealSet: return DealSet(~self.d)
     def ite(self, t: DealSet, e: DealSet) -> DealSet:
         return DealSet(self.d.thenelse(t.d, e.d))
+
+    def __eq__(self, other) -> bool:
+        if not isinstance(other, DealSet):
+            return NotImplemented
+        return self.d == other.d
+
+    def __hash__(self) -> int:
+        return hash(self.d)
 
     # --- query ---
 
@@ -547,7 +592,7 @@ class hand_makers:
 
         m = hand_makers
         north_1nt = m.NORTH(
-            (m.HCP >= 15) & (m.HCP <= 17) & m.SHAPE("any 4333 + any 5332 + any 4432")
+            (m.HCP >= 15) & (m.HCP <= 17) & m.MATCH_SHAPE("any 4333 + any 5332 + any 4432")
         )
         df = north_1nt.sample_df(1000)
     """
@@ -621,6 +666,17 @@ class hand_makers:
         if isinstance(card, str):
             card = Card(card[0], card[1])
         return HandSet(BDD(_BDD_VAR[card]))
+
+    @staticmethod
+    def HAND(spec) -> HandSet:
+        """
+        HandSet matching a specific hand — see ``HandSet.from_hand`` for the full
+        contract (Hand / hand string / int bitmask; partial hands match all supersets).
+
+        Example: ``h.HAND("AJT74/Q97/532/52")`` — exactly that 13-card hand.
+        Example: ``h.HAND("AKQ/-/-/-")`` — any hand holding at least AKQ of spades.
+        """
+        return HandSet.from_hand(spec)
 
     @staticmethod
     def MATCH_SHAPE(spec: str) -> HandSet:

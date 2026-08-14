@@ -2,7 +2,7 @@ import math
 import pytest
 
 from bridgepandas.handset import hand_makers, HandSet, DealSet
-from bridgepandas.hand import int_to_hand_str, BridgeHandArray
+from bridgepandas.hand import int_to_hand_str, hand_str_to_int, BridgeHandArray
 
 
 m = hand_makers
@@ -85,7 +85,6 @@ class TestHandSet:
     def test_contains_known_hand(self):
         # AKQJ of spades + 9 random small cards: 10 HCP
         hand_str = "AKQJ/T98/765/432"
-        from bridgepandas.hand import hand_str_to_int
         hand = hand_str_to_int(hand_str)
         assert (m.HCP == 10).contains(hand)
         assert not (m.HCP == 11).contains(hand)
@@ -96,6 +95,66 @@ class TestHandSet:
             hand = hs.sample()
             assert bin(hand).count("1") == 13
 
+    def test_eq_and_hash(self):
+        a = (m.HCP >= 15) & (m.HCP <= 17)
+        b = (m.HCP >= 15) & (m.HCP <= 17)
+        c = (m.HCP >= 16) & (m.HCP <= 17)
+        assert a == b
+        assert hash(a) == hash(b)
+        assert a != c
+        assert a != "not a handset"
+
+
+# ---------------------------------------------------------------------------
+# HandSet.from_hand / h.HAND
+# ---------------------------------------------------------------------------
+
+class TestFromHand:
+    FULL_HAND = "AJT74/Q97/532/52"
+
+    def test_full_hand_string_matches_exactly_one(self):
+        hs = HandSet.from_hand(self.FULL_HAND)
+        assert hs.count() == 1
+        assert hs.contains(hand_str_to_int(self.FULL_HAND))
+        assert not hs.contains(hand_str_to_int("AKQJ/T98/765/432"))
+
+    def test_hand_object_matches_string(self):
+        from bridgepandas.hand import Hand
+        by_str = HandSet.from_hand(self.FULL_HAND)
+        by_hand = HandSet.from_hand(Hand(self.FULL_HAND))
+        assert by_str.count() == by_hand.count() == 1
+        assert by_hand.contains(hand_str_to_int(self.FULL_HAND))
+
+    def test_partial_hand_matches_all_supersets(self):
+        # 5 named cards: any 13-card hand containing them is a match.
+        partial = "AJT74/-/-/-"
+        hs = HandSet.from_hand(partial)
+        assert hs.count() == math.comb(52 - 5, 13 - 5)
+
+    def test_partial_hand_samples_contain_named_cards(self):
+        partial = "AJT74/Q97/-/-"
+        mask = hand_str_to_int(partial)
+        hs = HandSet.from_hand(partial)
+        for _ in range(5):
+            hand = hs.sample()
+            assert hand & mask == mask
+
+    def test_empty_hand_matches_everything(self):
+        hs = HandSet.from_hand("-/-/-/-")
+        assert hs.count() == math.comb(52, 13)
+
+    def test_too_many_cards_raises(self):
+        # All 13 spades plus one heart: 14 cards, impossible for a single hand.
+        with pytest.raises(ValueError):
+            HandSet.from_hand("AKQJT98765432/A/-/-")
+
+    def test_int_mask_matches_string(self):
+        mask = hand_str_to_int(self.FULL_HAND)
+        assert HandSet.from_hand(mask).count() == HandSet.from_hand(self.FULL_HAND).count()
+
+    def test_h_hand_matches_from_hand(self):
+        assert m.HAND(self.FULL_HAND).count() == HandSet.from_hand(self.FULL_HAND).count()
+
 
 # ---------------------------------------------------------------------------
 # Shape constraints
@@ -104,30 +163,30 @@ class TestHandSet:
 class TestShape:
     def test_4333_count(self):
         # C(52,13) total hands; 4333 is a specific shape
-        s4333 = m.SHAPE("4333")
+        s4333 = m.MATCH_SHAPE("4333")
         assert s4333.count() > 0
         # Any permutation should be 4x the specific shape
-        assert m.SHAPE("any 4333").count() == 4 * s4333.count()
+        assert m.MATCH_SHAPE("any 4333").count() == 4 * s4333.count()
 
     def test_4432_any(self):
-        specific = m.SHAPE("4432")
-        any_4432 = m.SHAPE("any 4432")
+        specific = m.MATCH_SHAPE("4432")
+        any_4432 = m.MATCH_SHAPE("any 4432")
         # 4432 has 4!/(2!*1!*1!) = 12 distinct permutations
         assert any_4432.count() == 12 * specific.count()
 
     def test_addition(self):
-        a = m.SHAPE("4333")
-        b = m.SHAPE("any 4432")
-        combined = m.SHAPE("4333 + any 4432")
+        a = m.MATCH_SHAPE("4333")
+        b = m.MATCH_SHAPE("any 4432")
+        combined = m.MATCH_SHAPE("4333 + any 4432")
         assert combined.count() == a.count() + b.count()
 
     def test_subtraction(self):
-        any_44xx = m.SHAPE("any 44xx")
-        no_4450  = m.SHAPE("any 44xx - 4450 - 0445 - 5044 - 4504")
+        any_44xx = m.MATCH_SHAPE("any 44xx")
+        no_4450  = m.MATCH_SHAPE("any 44xx - 4450 - 0445 - 5044 - 4504")
         assert no_4450.count() < any_44xx.count()
 
     def test_shape_sample_satisfies(self):
-        shape = m.SHAPE("any 5332")
+        shape = m.MATCH_SHAPE("any 5332")
         for _ in range(5):
             hand = shape.sample()
             lengths = sorted([
@@ -145,7 +204,7 @@ class TestShape:
 
 class TestDealSet:
     def _north_1nt(self):
-        bal = m.SHAPE("any 4333 + any 5332 + any 4432")
+        bal = m.MATCH_SHAPE("any 4333 + any 5332 + any 4432")
         return m.NORTH((m.HCP >= 15) & (m.HCP <= 17) & bal)
 
     def test_count_is_large(self):
@@ -166,7 +225,7 @@ class TestDealSet:
             assert str(df[col].dtype) == "BridgeHand"
 
     def test_sample_df_north_satisfies_constraint(self):
-        bal = m.SHAPE("any 4333 + any 5332 + any 4432")
+        bal = m.MATCH_SHAPE("any 4333 + any 5332 + any 4432")
         nt_constraint = (m.HCP >= 15) & (m.HCP <= 17) & bal
         ds = m.NORTH(nt_constraint)
         df = ds.sample_df(10, seed=2)
@@ -186,8 +245,17 @@ class TestDealSet:
         assert ds.contains(deal["west"], deal["north"], deal["east"], deal["south"])
 
     def test_set_operations(self):
-        bal = m.SHAPE("any 4333 + any 5332 + any 4432")
+        bal = m.MATCH_SHAPE("any 4333 + any 5332 + any 4432")
         n15 = m.NORTH((m.HCP >= 15) & (m.HCP <= 17) & bal)
         n12 = m.NORTH((m.HCP >= 12) & (m.HCP <= 14) & bal)
         union = n15 | n12
         assert union.count() == n15.count() + n12.count()
+
+    def test_eq_and_hash(self):
+        a = self._north_1nt()
+        b = self._north_1nt()
+        c = m.NORTH(m.HCP >= 12)
+        assert a == b
+        assert hash(a) == hash(b)
+        assert a != c
+        assert a != "not a dealset"

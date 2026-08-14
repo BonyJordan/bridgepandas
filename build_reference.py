@@ -29,6 +29,7 @@ H_BOOLEAN = [
     ("h.MATCH_SHAPE(spec)", 'Shape constraint, e.g. <code>"any 5332"</code>, <code>"44xx"</code>, <code>"4432 + 4333"</code>.'),
     ("h.GOOD_SUIT(spec, suit)", 'Suit satisfies a holding pattern — same syntax as <a href="#Hand.good_suit"><code>Hand.good_suit()</code></a>, e.g. <code>h.GOOD_SUIT("AJx,KQx", "H")</code>.'),
     ("h.HAS(card)", 'Hand contains a specific card, e.g. <code>h.HAS("SA")</code>.'),
+    ("h.HAND(spec)", 'Matches a specific hand — a <code>Hand</code>, hand string, or int bitmask, e.g. <code>h.HAND("AJT74/Q97/532/52")</code>. Fewer than 13 cards matches every hand containing them as a subset, e.g. <code>h.HAND("AKQ/-/-/-")</code>.'),
     ("h.ANY(suit)", 'At least one card held in <em>suit</em>, e.g. <code>h.ANY("S")</code>.'),
     ("h.ALL_HANDS", 'Unconstrained — matches every possible hand.'),
 ]
