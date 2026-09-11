@@ -40,6 +40,25 @@ bp.add_dds_score(df, '4S-S', 'score_4s',  'ns')  # NS vulnerable
 df['imps'] = bp.scorediff_imps(df['score_3nt'] - df['score_4s'])
 ```
 
+## Running the tests
+
+The unit tests cover hand encoding, deal generation, and hand-set constraints.
+They require only `numpy`, `pandas`, and `pytest` — no DDS solver needed.
+
+```bash
+source venv/bin/activate
+pip install pytest            # if not already installed
+pytest python/tests/ -v
+```
+
+Individual test files:
+
+```bash
+pytest python/tests/test_hand.py     -v   # hand encoding, HCP, shape, accessors
+pytest python/tests/test_deal.py     -v   # deal generation and structure
+pytest python/tests/test_handset.py  -v   # HandSet constraint logic
+```
+
 ## Examples
 
 See [`examples/`](examples/) for Jupyter notebooks:
