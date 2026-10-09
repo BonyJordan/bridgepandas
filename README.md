@@ -58,7 +58,7 @@ source venv/bin/activate
 # you won't have much fun simulating without it.
 git clone https://github.com/dds-bridge/dds.git
 cd dds
-bazel build //python:dds_wheel_dist
+bazel build //python:dds3_wheel_dist
 pip install bazel-bin/python/dds3-*-py3-none-any.whl
 cd ..
 
