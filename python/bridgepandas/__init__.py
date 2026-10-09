@@ -27,7 +27,7 @@ from bridgepandas.scoring import (
     scorediff_imps,
     scorediff_matchpoints,
 )
-from bridgepandas.dds import solve, add_dds
+from bridgepandas.dds import solve, add_dds_score, add_dds_tricks
 
 __pdoc__ = {
     "BridgeHandArray": False,
@@ -60,6 +60,7 @@ __all__ = [
     "scorediff_imps",
     "scorediff_matchpoints",
     # dds
-    "add_dds",
+    "add_dds_score",
+    "add_dds_tricks",
     "solve",
 ]

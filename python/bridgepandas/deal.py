@@ -203,7 +203,7 @@ def random_deals(
         - ``HandSet`` — BDD constraint (enables fast BDD sampling)
         -- example: ``(h.HCP >= 15) & (h.HCP <= 17) & (h.MATCH_SHAPE("any 4333 + any 4432 + any 5332")``
         - ``callable`` — ``f(Hand) -> bool`` (forces slow accept/reject path)
-        -- example: ``lambda h: h.hcp >= 15 and h.hcp <= 17 and h.shape in [(4,3,3,3),(4,4,3,2),(5,3,3,2)]``
+        -- example: ``lambda h: h.hcp >= 15 and h.hcp <= 17 and h.handshape in [(4,3,3,3),(4,4,3,2),(5,3,3,2)]``
 
         If none of the four directional constraints are ``callable``, then
         fast sampling is used; however note that sometimes converting

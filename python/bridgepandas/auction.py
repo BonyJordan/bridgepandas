@@ -43,6 +43,8 @@ class Contract:
     def __repr__(self):
         return f"{self.level}{self.strain}{'xx'[:self.double_state]}"
 
+    __str__ = __repr__
+
     def __eq__(self, other):
         o = Contract(other)
         return (self.level == o.level and self.strain == o.strain
@@ -114,6 +116,8 @@ class DeclaredContract:
 
     def __repr__(self):
         return f"{self.level}{self.strain}{'xx'[:self.double_state]}-{self.declarer}"
+
+    __str__ = __repr__
 
     def __eq__(self, other):
         o = DeclaredContract(other)

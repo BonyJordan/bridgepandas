@@ -197,24 +197,24 @@ class Hand(int):
         )
 
     @property
-    def shape(self) -> tuple[int, int, int, int]:
+    def handshape(self) -> tuple[int, int, int, int]:
         """Suit lengths sorted descending, e.g. (5, 4, 3, 1)."""
         return tuple(sorted(self.pattern, reverse=True))
 
     @property
     def longest_suit(self) -> int:
         """Length of the longest suit."""
-        return self.shape[0]
+        return self.handshape[0]
 
     @property
     def second_suit(self) -> int:
         """Length of the second-longest suit."""
-        return self.shape[1]
+        return self.handshape[1]
 
     @property
     def shortest_suit(self) -> int:
         """Length of the shortest suit."""
-        return self.shape[3]
+        return self.handshape[3]
 
     @property
     def voids(self) -> int:
@@ -800,6 +800,25 @@ def _make_sorted_length_accessor(accessor_name: str, place: int):
 LongestSuitAccessor = _make_sorted_length_accessor("longest_suit", 0)
 SecondSuitAccessor  = _make_sorted_length_accessor("second_suit",  1)
 ShortestSuitAccessor = _make_sorted_length_accessor("shortest_suit", 3)
+
+
+@pd.api.extensions.register_series_accessor("handshape")
+class HandshapeAccessor:
+    """Series accessor returning a Series of suit-length tuples sorted descending."""
+
+    def __new__(cls, series: pd.Series) -> pd.Series:
+        if not isinstance(series.array, BridgeHandArray):
+            raise AttributeError("handshape accessor is only valid for BridgeHand columns")
+        arr = series.array
+        lengths = _sorted_suit_lengths(arr._data)
+        tuples = [tuple(row) for row in lengths.tolist()]
+        result = pd.Series(tuples, index=series.index, name=series.name, dtype=object)
+        if arr._mask.any():
+            result[arr._mask] = None
+        return result
+
+    def __init__(self, series: pd.Series) -> None:
+        pass
 
 
 # ---------------------------------------------------------------------------

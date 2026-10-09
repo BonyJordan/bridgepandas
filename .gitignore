@@ -23,3 +23,6 @@ dist/
 .idea/
 .vscode/
 *.swp
+
+# Claude Code
+.claude/
