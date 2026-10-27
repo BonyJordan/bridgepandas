@@ -547,7 +547,7 @@ class hand_makers:
 
         m = hand_makers
         north_1nt = m.NORTH(
-            (m.HCP >= 15) & (m.HCP <= 17) & m.SHAPE("any 4333 + any 5332 + any 4432")
+            (m.HCP >= 15) & (m.HCP <= 17) & m.MATCH_SHAPE("any 4333 + any 5332 + any 4432")
         )
         df = north_1nt.sample_df(1000)
     """

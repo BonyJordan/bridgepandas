@@ -114,7 +114,7 @@ class TestRandomDealsFast:
     def test_handset_spec(self):
         from bridgepandas.handset import hand_makers
         m = hand_makers
-        nt = (m.HCP >= 15) & (m.HCP <= 17) & m.SHAPE("any 4333 + any 5332 + any 4432")
+        nt = (m.HCP >= 15) & (m.HCP <= 17) & m.MATCH_SHAPE("any 4333 + any 5332 + any 4432")
         df = random_deals(10, north=nt, seed=3)
         for north_int in df["north"].array._data:
             assert nt.contains(int(north_int))
