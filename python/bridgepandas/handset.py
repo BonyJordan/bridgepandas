@@ -133,7 +133,12 @@ class HandSetMetric:
 
     def _arith(op):
         def fn(self, other):
-            if not isinstance(other, HandSetMetric):
+            if isinstance(other, int):
+                out: dict[int, BDD] = {}
+                for k, v in self.values.items():
+                    out[op(k, other)] = v
+                return HandSetMetric(out)
+            elif not isinstance(other, HandSetMetric):
                 raise TypeError(other)
             out: dict[int, BDD] = {}
             for k1, v1 in self.values.items():
@@ -146,11 +151,10 @@ class HandSetMetric:
 
     __add__ = _arith(operator.add)
     __sub__ = _arith(operator.sub)
-
-    def __mul__(self, other):
-        return HandSetMetric({k * other: v for k, v in self.values.items()})
-
-    __rmul__ = __mul__
+    # __rsub__ ??
+    __radd__ = _arith(operator.add)
+    __mul__ = _arith(operator.mul)
+    __rmul__ = _arith(operator.mul)
 
     def less_than(self, n: int) -> HandSet:
         if n <= min(self.values):
