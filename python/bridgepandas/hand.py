@@ -821,6 +821,27 @@ class HandshapeAccessor:
         pass
 
 
+@pd.api.extensions.register_series_accessor("pattern")
+class PatternAccessor:
+    """Series accessor returning a Series of suit-length tuples in (S, H, D, C) order."""
+
+    def __new__(cls, series: pd.Series) -> pd.Series:
+        if not isinstance(series.array, BridgeHandArray):
+            raise AttributeError("pattern accessor is only valid for BridgeHand columns")
+        arr = series.array
+        lengths = np.stack(
+            [_suit_length_array(arr._data, off) for off in (39, 26, 13, 0)], axis=1
+        )
+        tuples = [tuple(row) for row in lengths.tolist()]
+        result = pd.Series(tuples, index=series.index, name=series.name, dtype=object)
+        if arr._mask.any():
+            result[arr._mask] = None
+        return result
+
+    def __init__(self, series: pd.Series) -> None:
+        pass
+
+
 # ---------------------------------------------------------------------------
 # Exact suit holding accessor  (series.suits("Kx") etc.)
 # ---------------------------------------------------------------------------

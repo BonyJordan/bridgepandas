@@ -167,6 +167,19 @@ class TestSuitAccessors:
         total = s.spades + s.hearts + s.diamonds + s.clubs
         assert (total == 13).all()
 
+    def test_pattern_and_handshape(self):
+        hands = ["QJ6/K652/J85/T98", "AKQJT/-/98765432/-", None]
+        s = pd.Series(pd.array(hands, dtype="BridgeHand"))
+        assert s.pattern.tolist() == [(3, 4, 3, 3), (5, 0, 8, 0), None]
+        assert s.handshape.tolist() == [(4, 3, 3, 3), (8, 5, 0, 0), None]
+
+    def test_pattern_matches_scalar(self):
+        from bridgepandas.hand import Hand
+        df = random_deals(200, seed=0)
+        expected = [Hand(int(v)).pattern for v in df.south.array._data]
+        assert df.south.pattern.tolist() == expected
+        assert df.south.pattern.value_counts().sum() == 200
+
 
 # ---------------------------------------------------------------------------
 # random_deals
